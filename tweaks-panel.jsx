@@ -259,6 +259,19 @@ function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
+  // Backtick toggles the panel — ignored while a text field has focus so
+  // typing ` in a terminal/editor doesn't pop the panel open.
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== '`' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+      setOpen((o) => !o);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const dismiss = () => {
     setOpen(false);
     window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');

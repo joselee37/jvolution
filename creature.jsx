@@ -196,6 +196,8 @@ function SonarCreature({
   scanProgress, // 0..1 when sweeping, null when idle
   asleep = false,
   hue = 155,
+  pulseInterval = 5.0,
+  decayTau = 1.0,
 }) {
   const canvasRef = React.useRef(null);
   const dotsRef = React.useRef(new Map()); // id -> { brightness, lastLitT }
@@ -224,11 +226,9 @@ function SonarCreature({
     // default and only light up when the beam crosses them, then decay
     // along an exponential phosphor trail — so the creature is *only*
     // visible where the beam has recently been.
-    const PULSE_INTERVAL = 5.0;     // s between auto-pulses
     const PULSE_DURATION = 1.6;     // s for one sweep to cross
     const BEAM_HALFWIDTH = 0.05;    // u-space half-width of the leading edge
     const TRAIL_REACH = 0.45;       // u-space soft trail behind the beam
-    const PHOSPHOR_TAU = 1.0;       // s — 1/e decay time for lit dots
 
     let raf;
     const loop = (now) => {
@@ -245,7 +245,7 @@ function SonarCreature({
         scanU = scanProgress * 2 - 1;
         lastScanRef.current = t;
       } else {
-        const phase = (t % PULSE_INTERVAL) / PULSE_DURATION;
+        const phase = (t % pulseInterval) / PULSE_DURATION;
         if (phase < 1) scanU = phase * 2 - 1;
       }
 
@@ -302,7 +302,7 @@ function SonarCreature({
           }
         }
         const sinceLit = t - cur.lit;
-        const trail = Math.exp(-sinceLit / PHOSPHOR_TAU);
+        const trail = Math.exp(-sinceLit / decayTau);
         const target = present
           ? Math.min(1, Math.max(trail, beamBoost) * sleepFactor)
           : 0;
@@ -361,7 +361,7 @@ function SonarCreature({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [width, height, species, mood.happiness, mood.energy, mood.hunger, mood.hygiene, scanProgress, asleep, hue]);
+  }, [width, height, species, mood.happiness, mood.energy, mood.hunger, mood.hygiene, scanProgress, asleep, hue, pulseInterval, decayTau]);
 
   return <canvas ref={canvasRef} style={{ display: 'block', position: 'absolute', inset: 0 }} />;
 }

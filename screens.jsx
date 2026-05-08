@@ -136,6 +136,8 @@ function SonarScreen({ width, height, state, dispatch, tweaks }) {
           scanProgress={scanProgress}
           asleep={state.asleep}
           hue={HUE_BY_THEME[tweaks.theme]}
+          pulseInterval={tweaks.pulse}
+          decayTau={tweaks.decay}
         />
 
         <TargetBrackets />

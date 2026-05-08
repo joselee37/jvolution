@@ -7,7 +7,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "scanlines": true,
   "noise": true,
   "sound": false,
-  "bezel": "military"
+  "bezel": "military",
+  "pulse": 5,
+  "decay": 1
 }/*EDITMODE-END*/;
 
 const STAGES = ['egg', 'larva', 'juvenile', 'adult'];
@@ -409,6 +411,12 @@ function App() {
         <TweakSelect label="Species" value={t.species}
           options={['ghost', 'blob', 'jelly', 'squid', 'pixel']}
           onChange={(v) => setTweak('species', v)} />
+
+        <TweakSection label="Sonar" />
+        <TweakSlider label="Pulse period" value={t.pulse} min={2} max={12} step={0.5} unit="s"
+          onChange={(v) => setTweak('pulse', v)} />
+        <TweakSlider label="Phosphor decay" value={t.decay} min={0.3} max={4} step={0.1} unit="s"
+          onChange={(v) => setTweak('decay', v)} />
 
         <TweakSection label="Audio" />
         <TweakToggle label="SFX" value={t.sound}
