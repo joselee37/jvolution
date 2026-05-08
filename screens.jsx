@@ -45,10 +45,13 @@ function SonarScreen({ width, height, state, dispatch, tweaks }) {
   const [pinging, setPinging] = React.useState(false);
   const [statusLine, setStatusLine] = React.useState('CONTACT // CONTAINED');
 
-  const ping = () => {
-    if (pinging) return;
+  // Ping is now triggered from the terminal (`ping` / `scan`) via a nonce
+  // bumped in the reducer. Each bump kicks off the local sweep animation.
+  React.useEffect(() => {
+    if (!state.pingNonce) return;
     setPinging(true);
     const start = performance.now();
+    let raf;
     const tick = () => {
       const e = (performance.now() - start) / 1600;
       if (e >= 1) {
@@ -57,12 +60,12 @@ function SonarScreen({ width, height, state, dispatch, tweaks }) {
         return;
       }
       setScanProgress(e);
-      requestAnimationFrame(tick);
+      raf = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
-    dispatch({ type: 'ping' });
+    raf = requestAnimationFrame(tick);
     setStatusLine(['CONTACT // CONTAINED', 'TARGET LOCKED', 'BIO-SIGN POSITIVE', 'SIGNATURE STABLE'][Math.floor(Math.random()*4)]);
-  };
+    return () => { if (raf) cancelAnimationFrame(raf); };
+  }, [state.pingNonce]);
 
   // Mood label
   const moodLabel = (() => {
@@ -76,7 +79,7 @@ function SonarScreen({ width, height, state, dispatch, tweaks }) {
     return 'NOMINAL';
   })();
 
-  const stageH = height - 158; // leaves room for HUD top + bottom bar
+  const stageH = height - 70; // creature stage occupies everything below the top readout
   const stageW = width;
 
   return (
@@ -198,205 +201,7 @@ function SonarScreen({ width, height, state, dispatch, tweaks }) {
         )}
       </div>
 
-      {/* ACTION GRID (3x3) */}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        borderTop: '1px solid var(--phos-grid)',
-        padding: 8,
-        zIndex: 20,
-        background: 'oklch(0.06 0.02 var(--hue))',
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: 5,
-        }}>
-          <ActionButton k="F1" lbl="PING" onClick={ping} active={pinging} />
-          <ActionButton k="F2" lbl="FEED" onClick={() => dispatch({ type: 'feed' })} disabled={state.asleep} />
-          <ActionButton k="F3" lbl="PLAY" onClick={() => dispatch({ type: 'play' })} disabled={state.asleep} />
-          <ActionButton k="F4" lbl="CLEAN" onClick={() => dispatch({ type: 'clean' })} />
-          <ActionButton k="F5" lbl={state.asleep ? 'WAKE' : 'SLEEP'} onClick={() => dispatch({ type: 'sleep' })} />
-          <ActionButton k="F6" lbl="TRAIN" onClick={() => dispatch({ type: 'train' })} disabled={state.asleep} />
-          <ActionButton k="F7" lbl="DSCPL" onClick={() => dispatch({ type: 'discipline' })} disabled={state.asleep} />
-          <ActionButton k="F8" lbl="EVOLV" onClick={() => dispatch({ type: 'evolve' })} disabled={!state.canEvolve} />
-          <ActionButton k="F9" lbl="HEAL" onClick={() => dispatch({ type: 'heal' })} />
-          <ActionButton k="F0" lbl="MUTE" onClick={() => dispatch({ type: 'toggleSound' })} />
-        </div>
-      </div>
-
       {pinging && <div className="ping-sweep run" />}
-    </div>
-  );
-}
-
-function ActionButton({ k, lbl, onClick, disabled, active }) {
-  return (
-    <button
-      className={'cmd-btn' + (active ? ' active' : '')}
-      onClick={onClick}
-      disabled={disabled}
-      style={{ opacity: disabled ? 0.35 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
-    >
-      <span className="key">{k}</span>
-      <span className="lbl">{lbl}</span>
-    </button>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// STATUS screen
-// ─────────────────────────────────────────────────────────────
-function StatusScreen({ width, height, state, tweaks }) {
-  const gauges = [
-    { k: 'HAPPY', v: state.happiness },
-    { k: 'ENERGY', v: state.energy },
-    { k: 'FED', v: 1 - state.hunger },
-    { k: 'CLEAN', v: 1 - state.dirty },
-    { k: 'BOND', v: state.bond },
-    { k: 'TRAIN', v: state.training },
-    { k: 'DSCPL', v: state.discipline },
-  ];
-  const overall = (gauges.slice(0,4).reduce((s,g) => s + g.v, 0) / 4);
-
-  return (
-    <div className="crt-screen" style={{ width, height, position: 'relative' }}>
-      <CRTLayers scanlines={tweaks.scanlines} noise={tweaks.noise} glowStrength={tweaks.crt} />
-
-      <div style={{ position: 'absolute', inset: 0, padding: '16px 14px 8px', overflow: 'auto' }} className="no-scrollbar">
-        <div className="hud-corner tl" />
-        <div className="hud-corner tr" />
-
-        {/* Title */}
-        <div style={{ marginBottom: 10, position: 'relative' }}>
-          <div className="readout-row">
-            <span><b>STATUS // {state.name}</b></span>
-            <span>{state.stage.toUpperCase()}</span>
-          </div>
-          <div className="t-pixel glow" style={{
-            fontSize: 28, letterSpacing: '0.1em', marginTop: 4, lineHeight: 1,
-          }}>
-            VITALS_REPORT
-          </div>
-          <div className="t-mono" style={{ fontSize: 9, color: 'var(--phos-mid)', marginTop: 2 }}>
-            CYCLE {state.cycles.toString().padStart(4, '0')} // GEN {state.gen.toString().padStart(2, '0')} // AGE {state.age}D
-          </div>
-        </div>
-
-        {/* Gauges */}
-        <div style={{
-          border: '1px solid var(--phos-grid)',
-          padding: '10px 10px 8px',
-          marginBottom: 10,
-          background: 'oklch(0.07 0.02 var(--hue) / 0.4)',
-        }}>
-          <div className="readout-row" style={{ marginBottom: 6 }}>
-            <span>VITAL_PARAMETERS</span>
-            <span>{Math.round(overall*100).toString().padStart(3, '0')}%</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {gauges.map(g => (
-              <div className="gauge" key={g.k}>
-                <span className="gauge-label">{g.k}</span>
-                <span className="gauge-track">
-                  <span className="gauge-fill" style={{ width: `${g.v * 100}%` }} />
-                </span>
-                <span className="gauge-num">{Math.round(g.v * 100).toString().padStart(3, '0')}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Stage diagram */}
-        <div style={{
-          border: '1px solid var(--phos-grid)',
-          padding: '10px',
-          marginBottom: 10,
-          background: 'oklch(0.07 0.02 var(--hue) / 0.4)',
-        }}>
-          <div className="readout-row" style={{ marginBottom: 8 }}>
-            <span>EVOLUTION_TREE</span>
-            <span>{state.canEvolve ? 'READY' : `${Math.round(state.evolveProgress*100)}%`}</span>
-          </div>
-          <EvolutionTree current={state.stage} />
-          {!state.canEvolve && (
-            <div className="gauge" style={{ marginTop: 6 }}>
-              <span className="gauge-label">PROG</span>
-              <span className="gauge-track">
-                <span className="gauge-fill" style={{ width: `${state.evolveProgress * 100}%` }} />
-              </span>
-              <span className="gauge-num">{Math.round(state.evolveProgress*100)}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Inventory / Care log */}
-        <div style={{
-          border: '1px solid var(--phos-grid)',
-          padding: '8px 10px',
-          background: 'oklch(0.07 0.02 var(--hue) / 0.4)',
-        }}>
-          <div className="readout-row" style={{ marginBottom: 6 }}>
-            <span>CARE_LOG</span>
-            <span>LAST 04 EVENTS</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {state.log.slice(0, 4).map((e, i) => (
-              <div key={i} className="term-line dim" style={{ fontSize: 10 }}>
-                <span style={{ color: 'var(--phos-dim)' }}>
-                  [{e.t.toString().padStart(4, '0')}]
-                </span>{' '}
-                {e.msg}
-              </div>
-            ))}
-            {state.log.length === 0 && (
-              <div className="term-line faint">— no events recorded —</div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EvolutionTree({ current }) {
-  const stages = ['egg', 'larva', 'juvenile', 'adult'];
-  const idx = stages.indexOf(current);
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      {stages.map((s, i) => (
-        <React.Fragment key={s}>
-          <div style={{
-            width: 50, textAlign: 'center',
-          }}>
-            <div style={{
-              width: 26, height: 26, margin: '0 auto',
-              border: '1px solid ' + (i <= idx ? 'var(--phos)' : 'var(--phos-grid)'),
-              background: i === idx ? 'oklch(0.25 0.1 var(--hue))' : 'transparent',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'VT323', fontSize: 18,
-              color: i <= idx ? 'var(--phos)' : 'var(--phos-dim)',
-              boxShadow: i === idx ? '0 0 8px var(--phos-mid)' : 'none',
-            }}>
-              {['◐', '◑', '◒', '◓'][i]}
-            </div>
-            <div className="t-mono" style={{
-              fontSize: 8, marginTop: 3,
-              color: i <= idx ? 'var(--phos-mid)' : 'var(--phos-dim)',
-              letterSpacing: '0.05em',
-            }}>
-              {s.toUpperCase()}
-            </div>
-          </div>
-          {i < stages.length - 1 && (
-            <div style={{
-              flex: 1, height: 1, margin: '0 -2px',
-              background: 'repeating-linear-gradient(to right, ' +
-                (i < idx ? 'var(--phos)' : 'var(--phos-grid)') + ' 0 3px, transparent 3px 6px)',
-              marginBottom: 14,
-            }} />
-          )}
-        </React.Fragment>
-      ))}
     </div>
   );
 }
@@ -415,8 +220,10 @@ const COMMANDS = {
     '  sleep / wake  — toggle sleep',
     '  train         — training +',
     '  scold         — discipline +',
+    '  heal          — apply biopatch',
     '  evolve        — advance stage',
     '  talk          — converse',
+    '  mute          — toggle audio',
     '  name <str>    — rename unit',
     '  whoami        — operator info',
     '  history       — show log',
@@ -513,6 +320,14 @@ function TerminalScreen({ width, height, state, dispatch, tweaks }) {
       case 'scold': case 'discipline':
         dispatch({ type: 'discipline' });
         respond(['issuing reprimand...', '▸ discipline +10%. happiness -8%.']);
+        break;
+      case 'heal':
+        dispatch({ type: 'heal' });
+        respond(['applying biopatch...', '▸ energy +30%. happiness +5%.']);
+        break;
+      case 'mute': case 'sound':
+        dispatch({ type: 'toggleSound' });
+        respond([state.sound ? '▸ audio muted.' : '▸ audio enabled.']);
         break;
       case 'evolve':
         if (state.canEvolve) {
@@ -665,5 +480,5 @@ function tamagotchiTalk(state) {
 }
 
 Object.assign(window, {
-  SonarScreen, StatusScreen, TerminalScreen, HUE_BY_THEME,
+  SonarScreen, TerminalScreen, HUE_BY_THEME,
 });

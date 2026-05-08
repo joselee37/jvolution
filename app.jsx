@@ -33,6 +33,7 @@ function initialState() {
     canEvolve: false,
     evolving: false,
     disciplineFlash: false,
+    pingNonce: 0,
     log: [],
     toast: null,
     sound: false,
@@ -73,6 +74,7 @@ function reduce(s, a) {
         ...s,
         cycles: s.cycles + 1,
         bond: clamp(s.bond + 0.03),
+        pingNonce: s.pingNonce + 1,
       };
     case 'feed':
       return {
@@ -289,7 +291,6 @@ function Led({ color, off }) {
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [state, dispatch] = React.useReducer(reduce, null, initialState);
-  const [tab, setTab] = React.useState(0);
 
   React.useEffect(() => {
     document.documentElement.style.setProperty('--hue', HUE_BY_THEME[t.theme]);
@@ -321,23 +322,19 @@ function App() {
     }
   }, [state.evolving]);
 
-  // Screen dimensions inside the iPhone (402 × 874)
+  // iPhone (402 × 874) — status bar 60, header 32, bezel pad-top 8,
+  // bezel chrome ~57, 1:1 inner 362, terminal pad-top 6, home indicator 34.
+  // Sum: 60+32+8+57+362+6+terminalH+34 = 874  →  terminalH = 315
   const SCREEN_W = 402;
   const SCREEN_H = 874;
-
-  // Inside the Bezel: leave room for label + LED strip + padding (~58)
-  // Plus iPhone chrome: status bar (60) + header (32) + tab bar (40) + outer pad (16)
   const TOP = 60;
-
-  const innerW = 370;
-  const innerH = SCREEN_H - TOP - 32 - 40 - 16 - 58 - 12; // ≈ 656
-
-  const Screen = [SonarScreen, StatusScreen, TerminalScreen][tab];
+  const innerSquare = 362;
+  const terminalW = SCREEN_W - 16;
+  const terminalH = 315;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <IOSDevice width={SCREEN_W} height={SCREEN_H} dark>
-        {/* Replace the default content stack: we want full-bleed CRT */}
         <div style={{
           position: 'absolute', inset: 0, paddingTop: TOP,
           display: 'flex', flexDirection: 'column',
@@ -364,12 +361,12 @@ function App() {
             </div>
           </div>
 
-          {/* Bezel + screen */}
-          <div style={{ flex: 1, padding: '8px 8px 0', display: 'flex', flexDirection: 'column' }}>
+          {/* 1:1 SONAR bezel */}
+          <div style={{ padding: '8px 8px 0' }}>
             <Bezel variant={t.bezel} label={`SONAR-OBS · MK.III · ${state.stage.toUpperCase()}`}>
-              <Screen
-                width={innerW}
-                height={innerH}
+              <SonarScreen
+                width={innerSquare}
+                height={innerSquare}
                 state={state}
                 dispatch={dispatch}
                 tweaks={t}
@@ -377,18 +374,15 @@ function App() {
             </Bezel>
           </div>
 
-          {/* Tab bar */}
-          <div className="tab-bar" style={{ background: '#000' }}>
-            {['SONAR', 'STATUS', 'TERMNL'].map((label, i) => (
-              <button
-                key={label}
-                className={'tab-btn' + (tab === i ? ' active' : '')}
-                onClick={() => setTab(i)}
-              >
-                <span className="num">[ {String(i + 1).padStart(2, '0')} ]</span>
-                {label}
-              </button>
-            ))}
+          {/* Inline terminal */}
+          <div style={{ padding: '6px 8px 0' }}>
+            <TerminalScreen
+              width={terminalW}
+              height={terminalH}
+              state={state}
+              dispatch={dispatch}
+              tweaks={t}
+            />
           </div>
         </div>
       </IOSDevice>
