@@ -219,6 +219,17 @@ function SonarCreature({
     const offX = (width - cols * cellSize) / 2;
     const offY = (height - rows * cellSize) / 2;
 
+    // Sonar pulses on its own. A user `ping` (scanProgress prop) overrides
+    // the auto-pulse for the duration of that sweep. Dots are dark by
+    // default and only light up when the beam crosses them, then decay
+    // along an exponential phosphor trail — so the creature is *only*
+    // visible where the beam has recently been.
+    const PULSE_INTERVAL = 5.0;     // s between auto-pulses
+    const PULSE_DURATION = 1.6;     // s for one sweep to cross
+    const BEAM_HALFWIDTH = 0.05;    // u-space half-width of the leading edge
+    const TRAIL_REACH = 0.45;       // u-space soft trail behind the beam
+    const PHOSPHOR_TAU = 1.0;       // s — 1/e decay time for lit dots
+
     let raf;
     const loop = (now) => {
       const t = (now - startRef.current) / 1000;
@@ -227,78 +238,93 @@ function SonarCreature({
       const points = buildPoints(species, cols, rows);
       const shapeFn = SPECIES[species] || SPECIES.blob;
 
-      // Scan position (0..1 across width). When sweeping, advance.
+      // Beam position in u-space (-1..1). User ping takes priority; otherwise
+      // run the auto-pulse on the wall clock.
       let scanU = null;
       if (scanProgress !== null && scanProgress !== undefined) {
-        scanU = scanProgress * 2 - 1; // -1..1
+        scanU = scanProgress * 2 - 1;
         lastScanRef.current = t;
+      } else {
+        const phase = (t % PULSE_INTERVAL) / PULSE_DURATION;
+        if (phase < 1) scanU = phase * 2 - 1;
       }
 
-      // Map color to phosphor in selected hue
-      const lightness = (l) => `oklch(${l} 0.22 ${hue})`;
-
       const dots = dotsRef.current;
-
-      // Body breathing offset — slight oscillation
       const breathU = Math.sin(t * 0.6) * 0.015;
       const breathV = Math.cos(t * 0.4) * 0.012;
-
-      const sleepFactor = asleep ? 0.35 : 1;
+      const sleepFactor = asleep ? 0.4 : 1;
 
       points.forEach((p) => {
         const u = p.u + breathU;
         const v = p.v + breathV;
-        const density = shapeFn(u, v, t, mood);
+        let density = shapeFn(u, v, t, mood);
         const id = `${p.i}_${p.j}`;
         const cur = dots.get(id) || { b: 0, lit: -10 };
 
-        // Per-dot stochastic presence based on density (twinkle)
+        // Edge jitter: rough up the silhouette boundary the way a real
+        // sonar-return would. Inside-edge dots randomly drop out; just
+        // outside the mask, a small fraction "splatters" in at low density.
+        const jitter = p.sparsity;
+        if (density === 0) {
+          const angle = jitter * Math.PI * 2;
+          const reach = 0.05;
+          const sampled = shapeFn(
+            u + Math.cos(angle) * reach,
+            v + Math.sin(angle) * reach,
+            t, mood,
+          );
+          if (sampled > 0.25 && jitter > 0.86) density = 0.22;
+        } else if (density < 0.5 && jitter > 0.7) {
+          density *= 0.35;
+        }
+
+        // Per-dot stochastic presence based on density — denser at the
+        // silhouette interior, sparse near the edges.
         const present = density > 0 && p.sparsity < density * 0.92 + 0.08;
 
-        if (!present) {
-          cur.b *= 0.92; // fade out
-          dots.set(id, cur);
-          if (cur.b < 0.02) return;
+        // Stamp lit-time when the beam's leading edge crosses a present dot.
+        // The trail ahead/behind shows up via the smooth `target` below.
+        if (scanU !== null && present) {
+          const d = u - scanU;
+          if (d > -BEAM_HALFWIDTH && d < BEAM_HALFWIDTH) cur.lit = t;
         }
 
-        // Distance from scan line in u-space
-        let scanGain = 0;
-        if (scanU !== null) {
+        // brightness = mask × phosphorTrail(t - lit)
+        // Adds a small live-beam boost so the leading edge reads brighter
+        // than the residual phosphor.
+        let beamBoost = 0;
+        if (scanU !== null && present) {
           const d = u - scanU;
-          if (d > -0.04 && d < 0.04) {
-            scanGain = 1 - Math.abs(d) / 0.04;
-            cur.lit = t;
-          } else if (d < 0 && d > -0.5) {
-            // residual trail behind the scan
-            scanGain = Math.max(0, 0.4 + d * 0.8);
+          if (d > -BEAM_HALFWIDTH && d < BEAM_HALFWIDTH) {
+            beamBoost = 1 - Math.abs(d) / BEAM_HALFWIDTH;
+          } else if (d < 0 && d > -TRAIL_REACH) {
+            beamBoost = Math.max(0, 0.5 + d / TRAIL_REACH * 0.5);
           }
         }
-
-        // Base brightness from density, persistence after ping
-        let baseBright = present ? (0.35 + density * 0.55) * sleepFactor : 0;
-        // After a ping, brightness decays back to baseline
         const sinceLit = t - cur.lit;
-        const persistence = Math.exp(-sinceLit * 0.6) * 0.45;
-        const target = Math.min(1, baseBright + scanGain + persistence);
-        cur.b += (target - cur.b) * 0.25;
+        const trail = Math.exp(-sinceLit / PHOSPHOR_TAU);
+        const target = present
+          ? Math.min(1, Math.max(trail, beamBoost) * sleepFactor)
+          : 0;
+
+        cur.b += (target - cur.b) * 0.4;
         dots.set(id, cur);
+
+        if (cur.b < 0.02) return;
 
         const cx = offX + p.i * cellSize + cellSize / 2;
         const cy = offY + p.j * cellSize + cellSize / 2;
 
-        // Twinkle: tiny brightness wobble
         const twinkle = 1 + Math.sin(t * 2 + p.i * 0.7 + p.j * 1.3) * 0.06;
         const b = Math.max(0, Math.min(1, cur.b * twinkle));
         if (b < 0.02) return;
 
-        // Outer glow
         const radius = 1.4 + b * 1.8;
         ctx.beginPath();
         ctx.fillStyle = `oklch(${0.55 + b * 0.4} ${0.18 + b * 0.05} ${hue} / ${b})`;
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner core for bright dots
         if (b > 0.5) {
           ctx.beginPath();
           ctx.fillStyle = `oklch(0.96 0.10 ${hue} / ${(b - 0.5) * 2})`;
@@ -307,18 +333,28 @@ function SonarCreature({
         }
       });
 
-      // Bright scan line itself (front edge)
+      // Beam — wide soft halo + saturated trail + bright leading edge.
       if (scanU !== null) {
         const x = offX + ((scanU + 1) / 2) * (cols * cellSize);
-        const grad = ctx.createLinearGradient(x - 60, 0, x + 4, 0);
-        grad.addColorStop(0, `oklch(0.85 0.22 ${hue} / 0)`);
-        grad.addColorStop(0.7, `oklch(0.85 0.22 ${hue} / 0.15)`);
-        grad.addColorStop(1, `oklch(0.95 0.22 ${hue} / 0.6)`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(x - 60, 0, 64, height);
 
-        ctx.fillStyle = `oklch(0.97 0.20 ${hue} / 0.9)`;
-        ctx.fillRect(x - 1, 0, 2, height);
+        // Wide bloom — soft phosphor wash trailing the front
+        const halo = ctx.createLinearGradient(x - 120, 0, x + 6, 0);
+        halo.addColorStop(0, `oklch(0.7 0.20 ${hue} / 0)`);
+        halo.addColorStop(0.85, `oklch(0.85 0.22 ${hue} / 0.16)`);
+        halo.addColorStop(1, `oklch(0.95 0.22 ${hue} / 0.4)`);
+        ctx.fillStyle = halo;
+        ctx.fillRect(x - 120, 0, 126, height);
+
+        // Tight saturated body
+        const body = ctx.createLinearGradient(x - 24, 0, x + 4, 0);
+        body.addColorStop(0, `oklch(0.85 0.22 ${hue} / 0)`);
+        body.addColorStop(1, `oklch(0.97 0.18 ${hue} / 0.85)`);
+        ctx.fillStyle = body;
+        ctx.fillRect(x - 24, 0, 28, height);
+
+        // Bright leading-edge spike
+        ctx.fillStyle = `oklch(0.99 0.08 ${hue} / 1)`;
+        ctx.fillRect(x - 1.5, 0, 3, height);
       }
 
       raf = requestAnimationFrame(loop);
