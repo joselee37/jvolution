@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>NAUTILUS // SONAR TAMAGOTCHI</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
@@ -12,10 +15,21 @@
 <body>
   <div id="root"></div>
 
-  <script type="text/babel" src="ios-frame.jsx"></script>
-  <script type="text/babel" src="tweaks-panel.jsx"></script>
-  <script type="text/babel" src="creature.jsx"></script>
-  <script type="text/babel" src="screens.jsx"></script>
-  <script type="text/babel" src="app.jsx"></script>
+  <script>
+    // Inject the JSX scripts with a per-load cache buster so dev edits
+    // never get masked by the browser HTTP cache. Babel-standalone scans
+    // for type="text/babel" tags after window load, so DOMContentLoaded
+    // ordering here is fine.
+    (() => {
+      const v = Date.now();
+      const files = ['ios-frame.jsx', 'tweaks-panel.jsx', 'creature.jsx', 'screens.jsx', 'app.jsx'];
+      for (const f of files) {
+        const s = document.createElement('script');
+        s.type = 'text/babel';
+        s.src = `${f}?v=${v}`;
+        document.body.appendChild(s);
+      }
+    })();
+  </script>
 </body>
 </html>
