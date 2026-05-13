@@ -110,13 +110,15 @@ function resolveBattleTurn(myMove, theirMove, state, peer) {
 // Waveform clash overlay — animates two attack signatures from
 // either side toward center, then a brief flash on contact.
 // ─────────────────────────────────────────────────────────────
-function BattleClash({ width, height, myMove, theirMove, tag, crit, phase }) {
+function BattleClash({ width, height, myMove, theirMove, tag, crit, phase, meX, themX, midX: midXProp, dmgMe = 0, dmgThem = 0 }) {
   const canvasRef = React.useRef(null);
   const startRef = React.useRef(performance.now());
   const themeHueRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (phase !== 'reveal' && phase !== 'damage') return undefined;
+    if (phase !== 'reveal' && phase !== 'damage' && phase !== 'myCast' && phase !== 'theirCast') {
+      return undefined;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     const ctx = canvas.getContext('2d');
@@ -129,19 +131,51 @@ function BattleClash({ width, height, myMove, theirMove, tag, crit, phase }) {
     startRef.current = performance.now();
     let raf;
     const loop = (now) => {
-      const t = Math.min(1, (now - startRef.current) / (phase === 'reveal' ? 600 : 400));
+      // Cast phases play in place at the attacker's anchor; reveal & damage use
+      // their original timings.
+      const phaseDur =
+        phase === 'reveal' ? 600 :
+        phase === 'damage' ? 400 :
+        600; // myCast / theirCast
+      const t = Math.min(1, (now - startRef.current) / phaseDur);
       const hue = parseFloat(
         getComputedStyle(document.documentElement).getPropertyValue('--hue'),
       ) || 155;
       ctx.clearRect(0, 0, width, height);
       const cy = height / 2;
-      const midX = width / 2;
+      const midX = midXProp ?? width / 2;
+      // Wave launch points: just inside each creature, defaulting to the
+      // canvas edges if anchors weren't supplied (back-compat).
+      const startMe   = (meX   ?? 24)         + 28;
+      const startThem = (themX ?? width - 24) - 28;
 
-      // Reveal: both signatures travel from edges toward midX.
+      // Cast phases: only the active attacker's signature draws, anchored at
+      // their position with a small forward push so it reads as a wind-up.
+      // Reveal: both signatures travel from each creature toward midX.
       // Damage: a single flash centered on midX expanding outward.
-      if (phase === 'reveal') {
-        drawSignature(ctx, myMove,    hue, midX - (1 - t) * (midX - 24), cy, t, false);
-        drawSignature(ctx, theirMove, hue, midX + (1 - t) * (midX - 24), cy, t, true);
+      if (phase === 'myCast' || phase === 'theirCast') {
+        const isMine = phase === 'myCast';
+        const anchorX = isMine ? (meX ?? startMe) : (themX ?? startThem);
+        const move = isMine ? myMove : theirMove;
+        // Small forward push (~14px) toward the opponent over the beat.
+        const dir = isMine ? +1 : -1;
+        const drawX = anchorX + dir * 14 * t;
+        drawSignature(ctx, move, hue, drawX, cy, t, !isMine);
+        // Move label above the attacker so the beat is unambiguous.
+        const meta = BATTLE_ACTION_META[move];
+        if (meta) {
+          ctx.font = '600 14px VT323, JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = `oklch(0.95 0.20 ${hue} / ${Math.min(1, 0.3 + t)})`;
+          ctx.shadowColor = `oklch(0.85 0.22 ${hue})`;
+          ctx.shadowBlur = 10;
+          ctx.fillText(meta.label, anchorX, cy - 56);
+          ctx.shadowBlur = 0;
+        }
+      } else if (phase === 'reveal') {
+        drawSignature(ctx, myMove,    hue, startMe   + (midX - startMe)   * t, cy, t, false);
+        drawSignature(ctx, theirMove, hue, startThem - (startThem - midX) * t, cy, t, true);
         // Collision flash near the midpoint when they meet
         if (t > 0.85) {
           const flashR = (t - 0.85) * 80;
@@ -154,32 +188,57 @@ function BattleClash({ width, height, myMove, theirMove, tag, crit, phase }) {
           ctx.fill();
         }
       } else if (phase === 'damage') {
-        // Damage flash — bigger for crit
+        // Flash anchors at the defender(s) so the impact lands where the
+        // camera is panning to. A short projectile trail from midX leads the
+        // flash, visually continuing the wave that left the clash.
+        const targets = [];
+        if (dmgMe > 0)   targets.push(meX ?? midX);
+        if (dmgThem > 0) targets.push(themX ?? midX);
+        if (targets.length === 0) targets.push(midX); // BLOCKED / MISS — soft ping
         const maxR = crit ? Math.max(width, height) * 0.7 : 80;
-        const flashR = t * maxR;
-        const grd = ctx.createRadialGradient(midX, cy, 0, midX, cy, flashR);
-        grd.addColorStop(0, `oklch(0.98 0.22 ${hue} / ${(1 - t) * (crit ? 0.9 : 0.6)})`);
-        grd.addColorStop(0.7, `oklch(0.85 0.22 ${hue} / ${(1 - t) * 0.3})`);
-        grd.addColorStop(1, `oklch(0.85 0.22 ${hue} / 0)`);
-        ctx.fillStyle = grd;
-        ctx.beginPath();
-        ctx.arc(midX, cy, flashR, 0, Math.PI * 2);
-        ctx.fill();
-        // Crit: extra concentric rings
-        if (crit) {
-          for (let i = 0; i < 4; i++) {
-            const r = ((t * 1.6 - i * 0.1) % 1) * (maxR * 0.9);
-            if (r <= 0) continue;
-            ctx.strokeStyle = `oklch(0.95 0.22 ${hue} / ${0.6 * (1 - r / (maxR * 0.9))})`;
-            ctx.lineWidth = 2;
+        for (const fx of targets) {
+          // Projectile trail (only while flash is small) — bridges midX→fx.
+          if (t < 0.4 && fx !== midX) {
+            const trailT = t / 0.4;
+            const trailX = midX + (fx - midX) * trailT;
+            ctx.save();
+            ctx.strokeStyle = `oklch(0.92 0.20 ${hue} / ${(1 - trailT) * 0.7})`;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = `oklch(0.85 0.22 ${hue})`;
+            ctx.shadowBlur = 6;
             ctx.beginPath();
-            ctx.arc(midX, cy, r, 0, Math.PI * 2);
+            ctx.moveTo(midX, cy);
+            ctx.lineTo(trailX, cy);
             ctx.stroke();
+            ctx.restore();
+          }
+          // Impact flash at fx
+          const flashR = t * maxR;
+          const grd = ctx.createRadialGradient(fx, cy, 0, fx, cy, flashR);
+          grd.addColorStop(0, `oklch(0.98 0.22 ${hue} / ${(1 - t) * (crit ? 0.9 : 0.6)})`);
+          grd.addColorStop(0.7, `oklch(0.85 0.22 ${hue} / ${(1 - t) * 0.3})`);
+          grd.addColorStop(1, `oklch(0.85 0.22 ${hue} / 0)`);
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(fx, cy, flashR, 0, Math.PI * 2);
+          ctx.fill();
+          if (crit) {
+            for (let i = 0; i < 4; i++) {
+              const r = ((t * 1.6 - i * 0.1) % 1) * (maxR * 0.9);
+              if (r <= 0) continue;
+              ctx.strokeStyle = `oklch(0.95 0.22 ${hue} / ${0.6 * (1 - r / (maxR * 0.9))})`;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(fx, cy, r, 0, Math.PI * 2);
+              ctx.stroke();
+            }
           }
         }
       }
 
-      // Center tag text on collision frames
+      // Center tag text on collision frames. During reveal it sits at midX
+      // (camera centered). During damage it follows the single-defender flash
+      // so the label is visible in the viewport (camera panned to defender).
       if ((phase === 'reveal' && t > 0.9) || phase === 'damage') {
         ctx.font = '600 18px VT323, JetBrains Mono, monospace';
         ctx.textAlign = 'center';
@@ -187,7 +246,12 @@ function BattleClash({ width, height, myMove, theirMove, tag, crit, phase }) {
         ctx.fillStyle = `oklch(0.98 0.20 ${hue})`;
         ctx.shadowColor = `oklch(0.85 0.22 ${hue})`;
         ctx.shadowBlur = 12;
-        ctx.fillText(tag, midX, cy);
+        let tagX = midX;
+        if (phase === 'damage') {
+          if (dmgMe > 0 && dmgThem === 0)      tagX = meX ?? midX;
+          else if (dmgThem > 0 && dmgMe === 0) tagX = themX ?? midX;
+        }
+        ctx.fillText(tag, tagX, cy);
         ctx.shadowBlur = 0;
       }
 
@@ -195,7 +259,7 @@ function BattleClash({ width, height, myMove, theirMove, tag, crit, phase }) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase, myMove, theirMove, tag, crit, width, height]);
+  }, [phase, myMove, theirMove, tag, crit, width, height, meX, themX, midXProp, dmgMe, dmgThem]);
 
   return (
     <canvas ref={canvasRef} style={{
@@ -329,6 +393,21 @@ function BattleScreen({ width, height, state, dispatch, tweaks }) {
   const LOG_H = 46;
   const stageH = height - HEAD_H - MENU_H - LOG_H;
 
+  // Intra-reveal substage. 'clash' = waves meeting at midX with the camera
+  // centered. 'trail' = projectile leaving the clash toward the defender;
+  // camera target shifts to the defender so the pan is already in motion when
+  // the damage phase begins — that's what removes the seam between reveal and
+  // damage. 500ms aligns with the canvas clash flash (t ≈ 0.83 of 600ms).
+  const [revealStage, setRevealStage] = React.useState('clash');
+  React.useEffect(() => {
+    if (battle.phase !== 'reveal') {
+      setRevealStage('clash');
+      return undefined;
+    }
+    const id = setTimeout(() => setRevealStage('trail'), 500);
+    return () => clearTimeout(id);
+  }, [battle.phase]);
+
   // Drive cursor + commit from window keyboard.
   React.useEffect(() => {
     const onKey = (e) => {
@@ -381,62 +460,136 @@ function BattleScreen({ width, height, state, dispatch, tweaks }) {
                align="right" flashKey={`them-${battle.flashNonceThem || 0}`} />
       </div>
 
-      {/* STAGE — two creatures + clash overlay */}
-      <div className="battle-stage" style={{ height: stageH, top: HEAD_H }}>
-        <div className={'battle-creature left' + (battle.phase === 'damage' && battle.lastDmgMe > 0 ? ' hit' : '')}>
-          <SonarCreature
-            width={Math.min(stageH, 160)}
-            height={Math.min(stageH, 160)}
-            species={tweaks.species}
-            mood={{
-              happiness: state.happiness,
-              energy: myEnergy,
-              hunger: 1 - state.hunger,
-              hygiene: 1 - state.dirty,
-            }}
-            scanProgress={null}
-            asleep={false}
-            hue={hue}
-            pulseInterval={3}
-            decayTau={1.2}
-          />
-        </div>
-        <div className={'battle-creature right' + (battle.phase === 'damage' && battle.lastDmgThem > 0 ? ' hit' : '')}>
-          <SonarCreature
-            width={Math.min(stageH, 160)}
-            height={Math.min(stageH, 160)}
-            species={peer.species}
-            mood={{
-              happiness: peer.bond,
-              energy: theirEnergy,
-              hunger: 0.7,
-              hygiene: 0.7,
-            }}
-            scanProgress={null}
-            asleep={false}
-            hue={hue}
-            pulseInterval={3}
-            decayTau={1.2}
-          />
-        </div>
+      {/* STAGE — wide side-scrolling arena. Camera pans to the action so the
+           two creatures are never both centered at once. */}
+      {(() => {
+        const ARENA_FACTOR = 1.9;
+        const arenaW = Math.round(width * ARENA_FACTOR);
+        const creatureW = Math.min(stageH, 160);
+        const meAnchorX = Math.round(arenaW * 0.18);
+        const themAnchorX = Math.round(arenaW * 0.82);
 
-        <BattleClash
-          width={width}
-          height={stageH}
-          myMove={battle.myMove}
-          theirMove={battle.theirMove}
-          tag={lastOutcome?.tag || ''}
-          crit={!!lastOutcome?.crit}
-          phase={battle.phase}
-        />
-      </div>
+        // Camera target: positive translateX shifts the arena right (camera left).
+        const FOCUS_ME = (width / 2) - meAnchorX;
+        const FOCUS_THEM = (width / 2) - themAnchorX;
+        const FOCUS_CENTER = (width - arenaW) / 2;
+        // The "follow the projectile" focus — used by both reveal-trail and
+        // damage so the CSS transform doesn't change at the phase boundary.
+        const dmgMe = (battle.lastDmgMe || 0) > 0;
+        const dmgThem = (battle.lastDmgThem || 0) > 0;
+        const projectileFocus =
+          (dmgMe && !dmgThem) ? FOCUS_ME :
+          (dmgThem && !dmgMe) ? FOCUS_THEM :
+          FOCUS_CENTER; // mutual or no damage stays centered
+        let camX = FOCUS_CENTER;
+        if (battle.phase === 'choose' || battle.phase === 'myCast') camX = FOCUS_ME;
+        else if (battle.phase === 'theirCast') camX = FOCUS_THEM;
+        else if (battle.phase === 'reveal') {
+          camX = revealStage === 'trail' ? projectileFocus : FOCUS_CENTER;
+        }
+        else if (battle.phase === 'damage') camX = projectileFocus;
 
-      {/* LOG — outcome tag + narration line */}
+        return (
+          <div className="battle-stage" style={{ height: stageH, top: HEAD_H }}>
+            <div
+              className="battle-arena"
+              style={{
+                width: arenaW,
+                height: stageH,
+                transform: `translateX(${camX}px)`,
+              }}
+            >
+              <div
+                className={'battle-creature left' + (battle.phase === 'damage' && battle.lastDmgMe > 0 ? ' hit' : '')}
+                style={{ left: meAnchorX - creatureW / 2, width: creatureW, height: creatureW }}
+              >
+                <SonarCreature
+                  width={creatureW}
+                  height={creatureW}
+                  species={tweaks.species}
+                  mood={{
+                    happiness: state.happiness,
+                    energy: myEnergy,
+                    hunger: 1 - state.hunger,
+                    hygiene: 1 - state.dirty,
+                  }}
+                  scanProgress={null}
+                  asleep={false}
+                  hue={hue}
+                  pulseInterval={3}
+                  decayTau={1.2}
+                />
+              </div>
+              <div
+                className={'battle-creature right' + (battle.phase === 'damage' && battle.lastDmgThem > 0 ? ' hit' : '')}
+                style={{ left: themAnchorX - creatureW / 2, width: creatureW, height: creatureW }}
+              >
+                <SonarCreature
+                  width={creatureW}
+                  height={creatureW}
+                  species={peer.species}
+                  mood={{
+                    happiness: peer.bond,
+                    energy: theirEnergy,
+                    hunger: 0.7,
+                    hygiene: 0.7,
+                  }}
+                  scanProgress={null}
+                  asleep={false}
+                  hue={hue}
+                  pulseInterval={3}
+                  decayTau={1.2}
+                />
+              </div>
+
+              <BattleClash
+                width={arenaW}
+                height={stageH}
+                meX={meAnchorX}
+                themX={themAnchorX}
+                midX={arenaW / 2}
+                myMove={battle.myMove}
+                theirMove={battle.theirMove}
+                tag={lastOutcome?.tag || ''}
+                crit={!!lastOutcome?.crit}
+                phase={battle.phase}
+                dmgMe={battle.lastDmgMe || 0}
+                dmgThem={battle.lastDmgThem || 0}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* LOG — beat-by-beat narration. Cast phases announce each fighter's
+           chosen move before the clash; outcome only displays once damage
+           lands. The previous-turn outcome lingers through 'choose' so the
+           player can read the last result before committing to the next. */}
       <div className="battle-log" style={{ height: LOG_H, top: HEAD_H + stageH }}>
         {battle.phase === 'choose' && !lastOutcome && (
           <div className="battle-log-line dim">▸ select an action — ← → enter</div>
         )}
-        {lastOutcome && (
+        {battle.phase === 'myCast' && battle.myMove && (
+          <>
+            <div className="battle-log-tag">
+              {state.name} → {BATTLE_ACTION_META[battle.myMove].label}
+            </div>
+            <div className="battle-log-line dim">▸ casting…</div>
+          </>
+        )}
+        {battle.phase === 'theirCast' && battle.theirMove && (
+          <>
+            <div className="battle-log-tag">
+              {peer.name} → {BATTLE_ACTION_META[battle.theirMove].label}
+            </div>
+            <div className="battle-log-line dim">▸ casting…</div>
+          </>
+        )}
+        {battle.phase === 'reveal' && (
+          <div className="battle-log-line dim">▸ resolving…</div>
+        )}
+        {(battle.phase === 'choose' || battle.phase === 'damage' || battle.phase === 'end')
+          && lastOutcome && (
           <>
             <div className={'battle-log-tag ' + (lastOutcome.crit ? 'crit' : '')}>
               {lastOutcome.tag}

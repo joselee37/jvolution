@@ -700,18 +700,23 @@ body.alert-mode #root {
   letter-spacing: 0.1em;
 }
 
-/* Stage — two creatures + overlay canvas */
+/* Stage — clipping viewport for the side-scrolling arena. */
 .battle-stage {
   position: absolute;
   left: 0; right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 4px;
+  overflow: hidden;
+}
+/* Arena — wider than the viewport. translateX is driven from JS based on
+   battle.phase so the camera pans to whoever is on the action this beat. */
+.battle-arena {
+  position: relative;
+  transition: transform 650ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  will-change: transform;
 }
 .battle-creature {
-  position: relative;
-  width: 42%;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;

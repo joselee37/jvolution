@@ -99,7 +99,7 @@ function makeBattle(peerId) {
     cursor: 0,                 // 0..3 in BATTLE_ACTIONS
     myMove: null,
     theirMove: null,
-    phase: 'choose',           // 'choose' | 'reveal' | 'damage' | 'end'
+    phase: 'choose',           // 'choose' | 'myCast' | 'theirCast' | 'reveal' | 'damage' | 'end'
     log: [],                   // newest first; each { tag, line, crit, dmgMe, dmgThem }
     result: null,              // 'win' | 'lose' | 'flee' | 'draw'
     turn: 1,
@@ -397,35 +397,59 @@ function reduce(s, a) {
       const peer = s.peers.find((p) => p.id === s.battle.peerId);
       const my = BATTLE_ACTIONS[s.battle.cursor];
       const their = pickNpcMove(peer, s.battle);
+      // Eager-resolve so the reveal phase can begin panning the camera toward
+      // the defender as soon as the projectile leaves the clash — this is what
+      // bridges reveal into damage without a visible cut. HP is still applied
+      // lazily in battleApplyDamage, and flashNonce still bumps at
+      // battleResolve so the HP-bar shake lands with the impact flash and not
+      // the commit click.
+      const out = resolveBattleTurn(my, their, s, peer);
+      const narration = battleNarration(my, their, out, s.name, peer.name);
       return {
         ...s,
         battle: {
           ...s.battle,
           myMove: my,
           theirMove: their,
-          phase: 'reveal',
+          // Stage the reveal across three beats: myCast → theirCast → reveal
+          // (clash → trail). Moves are picked here so the cast phases can
+          // render them individually before they meet at center.
+          phase: 'myCast',
           myMoveHistory: [...s.battle.myMoveHistory, my],
-        },
-      };
-    }
-    case 'battleResolve': {
-      if (!s.battle || s.battle.phase !== 'reveal') return s;
-      const peer = s.peers.find((p) => p.id === s.battle.peerId);
-      const out = resolveBattleTurn(s.battle.myMove, s.battle.theirMove, s, peer);
-      const narration = battleNarration(s.battle.myMove, s.battle.theirMove, out, s.name, peer.name);
-      return {
-        ...s,
-        battle: {
-          ...s.battle,
-          phase: 'damage',
           lastDmgMe: out.me,
           lastDmgThem: out.them,
           log: [
             { tag: out.tag, crit: out.crit, dmgMe: out.me, dmgThem: out.them, line: narration },
             ...s.battle.log,
           ].slice(0, 6),
-          flashNonceMe: s.battle.flashNonceMe + (out.me > 0 ? 1 : 0),
-          flashNonceThem: s.battle.flashNonceThem + (out.them > 0 ? 1 : 0),
+        },
+      };
+    }
+    case 'battleAdvanceCast': {
+      // myCast → theirCast → reveal. Anything else is a no-op so a stray
+      // dispatch during reveal/damage can't desync the state machine.
+      if (!s.battle) return s;
+      const next =
+        s.battle.phase === 'myCast' ? 'theirCast' :
+        s.battle.phase === 'theirCast' ? 'reveal' :
+        null;
+      if (!next) return s;
+      return { ...s, battle: { ...s.battle, phase: next } };
+    }
+    case 'battleResolve': {
+      // Outcome was resolved at battleCommit; this is now purely the phase
+      // transition into damage. flashNonce bumps here so the HP-bar shake
+      // syncs with the impact flash.
+      if (!s.battle || s.battle.phase !== 'reveal') return s;
+      const dmgMe = s.battle.lastDmgMe || 0;
+      const dmgThem = s.battle.lastDmgThem || 0;
+      return {
+        ...s,
+        battle: {
+          ...s.battle,
+          phase: 'damage',
+          flashNonceMe: s.battle.flashNonceMe + (dmgMe > 0 ? 1 : 0),
+          flashNonceThem: s.battle.flashNonceThem + (dmgThem > 0 ? 1 : 0),
         },
       };
     }
@@ -748,6 +772,12 @@ function App() {
     if (!state.battle) return undefined;
     const phase = state.battle.phase;
     const result = state.battle.result;
+    if (phase === 'myCast' || phase === 'theirCast') {
+      // Each cast beat lingers ~700ms so the player can read the move that's
+      // being committed before the next reveal frame.
+      const id = setTimeout(() => dispatch({ type: 'battleAdvanceCast' }), 700);
+      return () => clearTimeout(id);
+    }
     if (phase === 'reveal') {
       const id = setTimeout(() => dispatch({ type: 'battleResolve' }), 700);
       return () => clearTimeout(id);
