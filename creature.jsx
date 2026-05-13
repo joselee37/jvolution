@@ -203,6 +203,11 @@ function SonarCreature({
   const dotsRef = React.useRef(new Map()); // id -> { brightness, lastLitT }
   const startRef = React.useRef(performance.now());
   const lastScanRef = React.useRef(0);
+  // Lerped hue so red⇔green shifts smoothly along with the CSS --hue
+  // transition (the prop changes instantly, the canvas eases toward it).
+  const hueTargetRef = React.useRef(hue);
+  const hueLerpRef = React.useRef(hue);
+  React.useEffect(() => { hueTargetRef.current = hue; }, [hue]);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -233,6 +238,10 @@ function SonarCreature({
     let raf;
     const loop = (now) => {
       const t = (now - startRef.current) / 1000;
+      // Shortest-path hue lerp — mirrors radar's behaviour.
+      const diff = ((hueTargetRef.current - hueLerpRef.current + 540) % 360) - 180;
+      hueLerpRef.current += diff * 0.08;
+      const liveHue = hueLerpRef.current;
       ctx.clearRect(0, 0, width, height);
 
       const points = buildPoints(species, cols, rows);
@@ -321,13 +330,13 @@ function SonarCreature({
 
         const radius = 1.4 + b * 1.8;
         ctx.beginPath();
-        ctx.fillStyle = `oklch(${0.55 + b * 0.4} ${0.18 + b * 0.05} ${hue} / ${b})`;
+        ctx.fillStyle = `oklch(${0.55 + b * 0.4} ${0.18 + b * 0.05} ${liveHue} / ${b})`;
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.fill();
 
         if (b > 0.5) {
           ctx.beginPath();
-          ctx.fillStyle = `oklch(0.96 0.10 ${hue} / ${(b - 0.5) * 2})`;
+          ctx.fillStyle = `oklch(0.96 0.10 ${liveHue} / ${(b - 0.5) * 2})`;
           ctx.arc(cx, cy, 0.9, 0, Math.PI * 2);
           ctx.fill();
         }
@@ -339,21 +348,21 @@ function SonarCreature({
 
         // Wide bloom — soft phosphor wash trailing the front
         const halo = ctx.createLinearGradient(x - 120, 0, x + 6, 0);
-        halo.addColorStop(0, `oklch(0.7 0.20 ${hue} / 0)`);
-        halo.addColorStop(0.85, `oklch(0.85 0.22 ${hue} / 0.16)`);
-        halo.addColorStop(1, `oklch(0.95 0.22 ${hue} / 0.4)`);
+        halo.addColorStop(0, `oklch(0.7 0.20 ${liveHue} / 0)`);
+        halo.addColorStop(0.85, `oklch(0.85 0.22 ${liveHue} / 0.16)`);
+        halo.addColorStop(1, `oklch(0.95 0.22 ${liveHue} / 0.4)`);
         ctx.fillStyle = halo;
         ctx.fillRect(x - 120, 0, 126, height);
 
         // Tight saturated body
         const body = ctx.createLinearGradient(x - 24, 0, x + 4, 0);
-        body.addColorStop(0, `oklch(0.85 0.22 ${hue} / 0)`);
-        body.addColorStop(1, `oklch(0.97 0.18 ${hue} / 0.85)`);
+        body.addColorStop(0, `oklch(0.85 0.22 ${liveHue} / 0)`);
+        body.addColorStop(1, `oklch(0.97 0.18 ${liveHue} / 0.85)`);
         ctx.fillStyle = body;
         ctx.fillRect(x - 24, 0, 28, height);
 
         // Bright leading-edge spike
-        ctx.fillStyle = `oklch(0.99 0.08 ${hue} / 1)`;
+        ctx.fillStyle = `oklch(0.99 0.08 ${liveHue} / 1)`;
         ctx.fillRect(x - 1.5, 0, 3, height);
       }
 
@@ -361,7 +370,7 @@ function SonarCreature({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [width, height, species, mood.happiness, mood.energy, mood.hunger, mood.hygiene, scanProgress, asleep, hue, pulseInterval, decayTau]);
+  }, [width, height, species, mood.happiness, mood.energy, mood.hunger, mood.hygiene, scanProgress, asleep, pulseInterval, decayTau]);
 
   return <canvas ref={canvasRef} style={{ display: 'block', position: 'absolute', inset: 0 }} />;
 }

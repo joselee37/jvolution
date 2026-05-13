@@ -1,6 +1,53 @@
 // screens.jsx — Sonar, Status, Terminal screens
 
 const HUE_BY_THEME = { green: 155, amber: 75, blue: 220 };
+const HUE_ALERT = 25; // Red — used when state.pendingRequest is active.
+
+// Helper so every screen + canvas reads the same effective hue.
+function getActiveHue(state, tweaks) {
+  if (state && state.pendingRequest) return HUE_ALERT;
+  return HUE_BY_THEME[tweaks.theme] ?? 155;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Peer alert overlay — large popup inside the main bezel when a
+// nearby unit hails. Stays mounted (driven by `active` prop) so
+// dismiss can fade out smoothly. Doesn't block input — the
+// terminal still accepts `accept` / `decline`.
+// ─────────────────────────────────────────────────────────────
+function PeerAlertOverlay({ peer, type, active }) {
+  if (!peer) return null;
+  const label = type === 'breed' ? 'BREEDING REQUEST' : 'CHALLENGE INCOMING';
+  return (
+    <div className={`peer-alert${active ? ' active' : ''}`}>
+      <div className="peer-alert-tint" />
+      <div className="peer-alert-frame">
+        <div className="peer-alert-corner tl" />
+        <div className="peer-alert-corner tr" />
+        <div className="peer-alert-corner bl" />
+        <div className="peer-alert-corner br" />
+        <div className="peer-alert-warn t-mono">▲ PROXIMITY ALERT ▲</div>
+        <div className="peer-alert-title t-pixel glow">NEW CONTACT</div>
+        <div className="peer-alert-sub t-mono">BIOLOGIC // PROXIMAL</div>
+        <div className="peer-alert-divider" />
+        <div className="peer-alert-meta t-mono">
+          <div><span>UNIT</span><b>{peer.name}</b></div>
+          <div><span>SPECIES</span><b>{peer.species.toUpperCase()}</b></div>
+          <div><span>STAGE</span><b>{peer.stage.toUpperCase()}</b></div>
+          <div><span>BRG/RNG</span><b>
+            {String(Math.round(peer.bearing)).padStart(3, '0')}°
+            {' / '}
+            {String(Math.round(peer.range * 50)).padStart(2, '0')}m
+          </b></div>
+        </div>
+        <div className="peer-alert-req t-mono">{label}</div>
+        <div className="peer-alert-hint t-mono">
+          ▸ terminal: <b>accept</b> · <b>decline</b>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────
 // Shared CRT background layers
@@ -135,7 +182,7 @@ function SonarScreen({ width, height, state, dispatch, tweaks }) {
           }}
           scanProgress={scanProgress}
           asleep={state.asleep}
-          hue={HUE_BY_THEME[tweaks.theme]}
+          hue={getActiveHue(state, tweaks)}
           pulseInterval={tweaks.pulse}
           decayTau={tweaks.decay}
         />
@@ -209,13 +256,206 @@ function SonarScreen({ width, height, state, dispatch, tweaks }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// LINEAGE (tree) screen — Linux `tree` style ancestry view.
+// Each generation is a child of GENESIS/, with stat-files inside.
+// The active gen highlights and shows live mood/bond/cycles; retired
+// gens render in --phos-dim with a ✟ status.
+// ─────────────────────────────────────────────────────────────
+function TreeScreen({ width, height, state, dispatch, tweaks }) {
+  const all = [
+    ...state.lineage.map(e => ({ ...e, retired: true })),
+    {
+      gen: state.gen,
+      name: state.name,
+      stage: state.stage,
+      cycles: state.cycles,
+      happiness: Math.round(state.happiness * 100),
+      bond: Math.round(state.bond * 100),
+      hatchedAt: state.hatchedAt,
+      retired: false,
+    },
+  ];
+  const totalCycles = all.reduce((a, e) => a + e.cycles, 0);
+
+  const fmtTime = (ms) => {
+    if (!ms) return '----';
+    const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    return `${h}h ${m % 60}m ago`;
+  };
+
+  return (
+    <div className="crt-screen" style={{ width, height, position: 'relative' }}>
+      <CRTLayers scanlines={tweaks.scanlines} noise={tweaks.noise} glowStrength={tweaks.crt} />
+
+      {/* TOP READOUT */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 70,
+        padding: '12px 14px 8px', zIndex: 20,
+        borderBottom: '1px solid var(--phos-grid)',
+      }}>
+        <div className="hud-corner tl" />
+        <div className="hud-corner tr" />
+        <div className="readout-row">
+          <span><b>LINEAGE</b> // ARCHIVE</span>
+          <span>NODES <b>{all.length}</b></span>
+        </div>
+        <div className="readout-row" style={{ marginTop: 3 }}>
+          <span>ROOT <b>GENESIS/</b></span>
+          <span>CYC <b>{String(totalCycles).padStart(4, '0')}</b></span>
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
+        }}>
+          <span className="alive-dot" />
+          <span className="t-pixel glow" style={{ fontSize: 17, letterSpacing: '0.05em' }}>
+            ANCESTRY
+          </span>
+          <span className="t-mono" style={{ fontSize: 8, color: 'var(--phos-mid)', marginLeft: 6 }}>
+            ▸ tree --gen --depth=2
+          </span>
+        </div>
+      </div>
+
+      {/* TREE BODY */}
+      <div className="no-scrollbar" style={{
+        position: 'absolute', top: 70, left: 0, right: 0, bottom: 0,
+        padding: '12px 12px 28px',
+        fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5,
+        lineHeight: 1.6, color: 'var(--phos)', overflow: 'auto',
+        whiteSpace: 'pre',
+      }}>
+        <div className="hud-corner bl" />
+        <div className="hud-corner br" />
+
+        <div style={{ color: 'var(--phos)' }} className="glow-soft">
+          <span style={{ color: 'var(--phos-mid)' }}>$</span> tree GENESIS/
+        </div>
+        <div style={{ height: 4 }} />
+        <div style={{ color: 'var(--phos)' }}>GENESIS/</div>
+
+        {all.map((e, i) => {
+          const last = i === all.length - 1;
+          const branch = last ? '└── ' : '├── ';
+          const cont = last ? '    ' : '│   ';
+          return (
+            <React.Fragment key={i}>
+              <div style={{
+                color: e.retired ? 'var(--phos-dim)' : 'var(--phos)',
+                textShadow: e.retired ? 'none' : '0 0 4px var(--phos-mid)',
+              }}>
+                <span style={{ color: 'var(--phos-mid)' }}>{branch}</span>
+                <span style={{ color: e.retired ? 'var(--phos-dim)' : 'var(--phos-mid)' }}>
+                  G{String(e.gen).padStart(2, '0')}_
+                </span>
+                {e.name}/
+                {!e.retired && (
+                  <span style={{ color: 'var(--phos)', marginLeft: 10, fontFamily: 'VT323' }}>
+                    ◀ ACTIVE
+                  </span>
+                )}
+              </div>
+              <TreeField cont={cont} k="stage     " v={e.stage} dim={e.retired} />
+              <TreeField cont={cont} k="cycles    " v={String(e.cycles).padStart(4, '0')} dim={e.retired} />
+              {e.retired ? (
+                <>
+                  <TreeField cont={cont} k="last-mood " v={`${e.happiness}%`} dim={true} />
+                  <TreeField cont={cont} k="bond      " v={`${e.bond}%`} dim={true} />
+                  <TreeField
+                    cont={cont}
+                    k="archived  "
+                    v={fmtTime(e.archivedAt)}
+                    dim={true}
+                  />
+                  <TreeField
+                    cont={cont}
+                    k="status    "
+                    v="✟ retired"
+                    dim={true}
+                    last
+                  />
+                </>
+              ) : (
+                <>
+                  <TreeField cont={cont} k="happiness " v={`${e.happiness}%`} />
+                  <TreeField cont={cont} k="bond      " v={`${e.bond}%`} />
+                  <TreeField cont={cont} k="hatched   " v={fmtTime(e.hatchedAt)} />
+                  <TreeField cont={cont} k="status    " v="● alive" alive last />
+                </>
+              )}
+              {!last && <div style={{ color: 'var(--phos-mid)' }}>│</div>}
+            </React.Fragment>
+          );
+        })}
+
+        <div style={{ height: 10 }} />
+        <div style={{ color: 'var(--phos-mid)' }}>
+          ─────────────────────────────────────
+        </div>
+        <div style={{ color: 'var(--phos-dim)' }}>
+          {all.length} {all.length === 1 ? 'directory' : 'directories'},{' '}
+          {totalCycles} cycles total
+        </div>
+
+        <div style={{ marginTop: 10, color: 'var(--phos-dim)', fontSize: 9 }}>
+          ▸ type <span style={{ color: 'var(--phos-mid)' }}>sonar</span> in terminal to return
+        </div>
+      </div>
+
+      {/* Toast — same overlay UX as sonar so feedback is consistent */}
+      {state.toast && (
+        <div style={{
+          position: 'absolute', top: 80, left: '50%', transform: 'translateX(-50%)',
+          background: 'oklch(0.16 0.06 var(--hue))',
+          border: '1px solid var(--phos)',
+          padding: '5px 12px',
+          fontFamily: 'JetBrains Mono', fontSize: 10,
+          color: 'var(--phos)', letterSpacing: '0.06em',
+          boxShadow: '0 0 8px var(--phos-mid)',
+          zIndex: 20,
+        }}>
+          ▸ {state.toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreeField({ cont, k, v, dim, alive, last }) {
+  const branch = last ? '└── ' : '├── ';
+  return (
+    <div style={{ color: 'var(--phos-mid)' }}>
+      {cont}<span style={{ color: 'var(--phos-mid)' }}>{branch}</span>
+      <span style={{ color: dim ? 'var(--phos-dim)' : 'var(--phos-mid)' }}>{k}</span>
+      <span style={{
+        color: dim ? 'var(--phos-dim)' : 'var(--phos)',
+        textShadow: alive ? '0 0 4px var(--phos)' : 'none',
+      }}>
+        {v}
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // TERMINAL screen
 // ─────────────────────────────────────────────────────────────
 const COMMANDS = {
   help: () => [
     'AVAILABLE COMMANDS:',
-    '  status        — vitals readout',
-    '  scan / ping   — sonar sweep',
+    '  status        — vitals readout (boxed)',
+    '  scan / peers  — radar sweep + nearby unit list',
+    '  ping          — sonar pulse on current view',
+    '  tree          — view lineage archive',
+    '  sonar / back  — return to sonar view',
+    '  bond <name>   — peer-bond + battle record',
+    '  challenge <n> — challenge nearby unit to battle',
+    '  accept        — accept incoming request',
+    '  decline       — dismiss incoming request',
+    '  flee          — disengage from current battle',
     '  feed [item]   — feed creature',
     '  play          — happiness +',
     '  clean         — hygiene +',
@@ -230,7 +470,7 @@ const COMMANDS = {
     '  whoami        — operator info',
     '  history       — show log',
     '  clear         — clear screen',
-    '  reset         — new egg',
+    '  reset         — archive + new egg',
   ],
   whoami: () => [
     'OPERATOR_ID: NAUTILUS-7',
@@ -253,6 +493,19 @@ function TerminalScreen({ width, height, state, dispatch, tweaks }) {
   const [cmdIdx, setCmdIdx] = React.useState(-1);
   const scrollRef = React.useRef(null);
   const inputRef = React.useRef(null);
+  // Track which peer-event nonces we've already echoed so re-renders don't
+  // duplicate them.
+  const lastEventNonceRef = React.useRef(state.peerEventNonce);
+
+  React.useEffect(() => {
+    if (state.peerEventNonce === lastEventNonceRef.current) return;
+    lastEventNonceRef.current = state.peerEventNonce;
+    const ev = state.peerEventLatest;
+    if (!ev) return;
+    const tagByKind = { challenge: 'sys', friendly: 'out', accept: 'out', decline: 'out' };
+    const t = tagByKind[ev.kind] || 'out';
+    setHistory((h) => [...h, ...ev.lines.map((text) => ({ t, text }))]);
+  }, [state.peerEventNonce]);
 
   React.useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -276,20 +529,100 @@ function TerminalScreen({ width, height, state, dispatch, tweaks }) {
       setHistory(h => [...h, ...lines, ...out.map(l => typeof l === 'string' ? { t: 'out', text: l } : l)]);
     };
 
+    // During battle, only a handful of commands make sense. Everything else
+    // gets a polite "in battle" gate so the player can't accidentally feed
+    // the creature mid-engagement.
+    const inBattle = !!state.battle;
+    const BATTLE_ALLOWED = new Set([
+      'flee', 'forfeit', 'help', 'whoami', 'clear', 'echo', 'mute', 'sound',
+    ]);
+    if (inBattle && !BATTLE_ALLOWED.has(verb)) {
+      respond([`${verb}: locked — engagement in progress. (\`flee\` to disengage)`]);
+      return;
+    }
+
     switch (verb) {
       case 'help': respond(COMMANDS.help()); break;
       case 'whoami': respond(COMMANDS.whoami()); break;
-      case 'status':
+      case 'status': {
+        const bar = (v, w = 12) => {
+          const filled = Math.round(Math.max(0, Math.min(1, v)) * w);
+          return '█'.repeat(filled) + '░'.repeat(w - filled);
+        };
+        const pct = (v) => `${String(Math.round(Math.max(0, Math.min(1, v)) * 100)).padStart(3, ' ')}%`;
         respond([
-          `unit       ${state.name}`,
-          `stage      ${state.stage} // gen ${state.gen.toString().padStart(2,'0')}`,
-          `happiness  ${'█'.repeat(Math.round(state.happiness*10)).padEnd(10,'·')}  ${Math.round(state.happiness*100)}%`,
-          `energy     ${'█'.repeat(Math.round(state.energy*10)).padEnd(10,'·')}  ${Math.round(state.energy*100)}%`,
-          `fed        ${'█'.repeat(Math.round((1-state.hunger)*10)).padEnd(10,'·')}  ${Math.round((1-state.hunger)*100)}%`,
-          `clean      ${'█'.repeat(Math.round((1-state.dirty)*10)).padEnd(10,'·')}  ${Math.round((1-state.dirty)*100)}%`,
+          '─── UNIT ──────────────────────────────',
+          `  name        ${state.name}`,
+          `  stage       ${state.stage.toUpperCase()}  · gen ${String(state.gen).padStart(2, '0')}`,
+          `  cycles      ${String(state.cycles).padStart(4, '0')}` + (state.asleep ? '   [sleeping]' : ''),
+          '',
+          '─── MOOD ──────────────────────────────',
+          `  happiness   ${bar(state.happiness)}  ${pct(state.happiness)}`,
+          `  energy      ${bar(state.energy)}  ${pct(state.energy)}`,
+          '',
+          '─── CARE ──────────────────────────────',
+          `  fed         ${bar(1 - state.hunger)}  ${pct(1 - state.hunger)}`,
+          `  clean       ${bar(1 - state.dirty)}  ${pct(1 - state.dirty)}`,
+          '',
+          '─── TRAINING ──────────────────────────',
+          `  bond        ${bar(state.bond)}  ${pct(state.bond)}`,
+          `  training    ${bar(state.training)}  ${pct(state.training)}`,
+          `  discipline  ${bar(state.discipline)}  ${pct(state.discipline)}`,
+          '',
+          '─── EVOLUTION ─────────────────────────',
+          `  progress    ${bar(state.evolveProgress)}  ${pct(state.evolveProgress)}` +
+            (state.canEvolve ? '   ◀ READY' : ''),
         ]);
         break;
-      case 'scan': case 'ping':
+      }
+      case 'tree': {
+        dispatch({ type: 'setView', view: 'tree' });
+        const archived = state.lineage.length;
+        respond([
+          '$ tree GENESIS/',
+          `▸ archive contains ${archived} retired ${archived === 1 ? 'generation' : 'generations'} + 1 active.`,
+          '▸ lineage rendered on primary display.',
+          '  (type `sonar` to return)',
+        ]);
+        break;
+      }
+      case 'sonar': case 'back': {
+        if (state.view === 'sonar') {
+          respond(['▸ already on sonar.']);
+        } else {
+          dispatch({ type: 'setView', view: 'sonar' });
+          respond(['▸ returning to sonar.']);
+        }
+        break;
+      }
+      case 'scan': case 'peers': case 'radar': {
+        const wasOnRadar = state.view === 'radar';
+        if (!wasOnRadar) dispatch({ type: 'setView', view: 'radar' });
+        const lines = [
+          '$ scan --peers @ 14.2kHz',
+          `▸ ${state.peers.length} contacts detected.`,
+          ...state.peers
+            .slice()
+            .sort((p1, p2) => p1.range - p2.range)
+            .map((p) => {
+              const tag = p.id.toUpperCase().padEnd(7);
+              const nm = p.name.padEnd(8);
+              const sp = p.species.padEnd(5);
+              const st = p.stage.slice(0, 4).padEnd(4);
+              const brg = String(Math.round(p.bearing)).padStart(3, '0');
+              const rng = String(Math.round(p.range * 50)).padStart(2, '0');
+              return `  [${tag}] ${nm} · ${sp} · ${st} · brg ${brg}° · rng ${rng}m`;
+            }),
+          '',
+          wasOnRadar
+            ? '▸ sweep continuing on primary display.'
+            : '▸ radar scope active. type `sonar` to return.',
+        ];
+        respond(lines);
+        break;
+      }
+      case 'ping': {
+        // Keep the legacy ping behavior (sonar sweep) bound to its own verb.
         dispatch({ type: 'ping' });
         respond([
           'transmitting sonar pulse @ 14.2kHz...',
@@ -299,6 +632,105 @@ function TerminalScreen({ width, height, state, dispatch, tweaks }) {
           'PING_OK.',
         ]);
         break;
+      }
+      case 'accept': {
+        if (!state.pendingRequest) {
+          respond(['no incoming request.']);
+        } else {
+          const peer = state.peers.find((p) => p.id === state.pendingRequest.from);
+          if (state.pendingRequest.type === 'challenge') {
+            respond([
+              `▸ accepted ${peer?.name || ''}'s challenge.`,
+              '  ENGAGE — switching to combat console.',
+            ]);
+            dispatch({ type: 'battleStart', peerId: state.pendingRequest.from });
+          } else {
+            // Other request types (e.g. future breed) reuse the v1 accept stub
+            dispatch({ type: 'acceptRequest' });
+          }
+        }
+        break;
+      }
+      case 'challenge': {
+        const target = (args[0] || '').toLowerCase();
+        if (!target) {
+          respond(['usage: challenge <name>']);
+          break;
+        }
+        const peer = state.peers.find(
+          (p) => p.name.toLowerCase() === target || p.id === target,
+        );
+        if (!peer) {
+          respond([`no peer named ${args[0]}.`]);
+          break;
+        }
+        // Aggressive personalities accept readily; gentle ones often decline.
+        const acceptOdds = {
+          aggressive: 0.85, playful: 0.65, veteran: 0.55, gentle: 0.30,
+        }[peer.personality] ?? 0.5;
+        if (Math.random() < acceptOdds) {
+          respond([
+            `▸ hailing ${peer.name}...`,
+            `▸ ${peer.name} accepts. ENGAGE.`,
+          ]);
+          dispatch({ type: 'battleStart', peerId: peer.id });
+        } else {
+          respond([
+            `▸ hailing ${peer.name}...`,
+            `▸ ${peer.name} drifts away. (challenge declined)`,
+          ]);
+        }
+        break;
+      }
+      case 'flee': case 'forfeit': {
+        if (!state.battle) {
+          respond(['no active engagement to flee from.']);
+        } else {
+          respond(['▸ disengaging — pulse withdrawn.']);
+          dispatch({ type: 'battleFlee' });
+        }
+        break;
+      }
+      case 'decline': {
+        if (!state.pendingRequest) {
+          respond(['no incoming request.']);
+        } else {
+          dispatch({ type: 'declineRequest' });
+          respond([]);
+        }
+        break;
+      }
+      case 'bond': {
+        const target = (args[0] || '').toLowerCase();
+        if (!target) {
+          respond(['usage: bond <name>']);
+          break;
+        }
+        const peer = state.peers.find(
+          (p) => p.name.toLowerCase() === target || p.id === target,
+        );
+        if (!peer) {
+          respond([`no peer named ${args[0]}.`]);
+          break;
+        }
+        const w = peer.battlesWon || 0;
+        const l = peer.battlesLost || 0;
+        const bondPct = Math.round(peer.bond * 100);
+        const barW = 16;
+        const filled = Math.round(peer.bond * barW);
+        const bar = '█'.repeat(filled) + '░'.repeat(barW - filled);
+        respond([
+          `${peer.name} — ${peer.species} · ${peer.stage} · ${peer.personality}`,
+          `  bond     [${bar}]  ${bondPct}%`,
+          `  record   ${w}W / ${l}L`,
+          `  bearing  ${String(Math.round(peer.bearing)).padStart(3, '0')}°`,
+          `  range    ${String(Math.round(peer.range * 50)).padStart(2, '0')}m`,
+          peer.bond >= 0.7
+            ? '  status   ◀ BREED-ELIGIBLE'
+            : `  status   bond ≥ 70% required to breed`,
+        ]);
+        break;
+      }
       case 'feed':
         dispatch({ type: 'feed' });
         respond([`dispensing ${args[0] || 'standard ration'}...`, '▸ unit fed. hunger -25%.']);
@@ -410,7 +842,24 @@ function TerminalScreen({ width, height, state, dispatch, tweaks }) {
         <div style={{ marginBottom: 8 }}>
           <div className="readout-row">
             <span><b>TERMINAL</b> // tty0</span>
-            <span><span className="alive-dot" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} /> SECURE</span>
+            <span>
+              {state.pendingRequest ? (
+                <>
+                  <span className="alert-dot" />
+                  <b style={{ color: 'var(--phos)' }}>
+                    {(state.peers.find((p) => p.id === state.pendingRequest.from)?.name) || 'PEER'} HAILS
+                  </b>
+                </>
+              ) : (
+                <>
+                  <span
+                    className="alive-dot"
+                    style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }}
+                  />{' '}
+                  SECURE
+                </>
+              )}
+            </span>
           </div>
           <div style={{
             height: 1, background: 'var(--phos-grid)', margin: '6px 0',
@@ -482,5 +931,6 @@ function tamagotchiTalk(state) {
 }
 
 Object.assign(window, {
-  SonarScreen, TerminalScreen, HUE_BY_THEME,
+  SonarScreen, TerminalScreen, TreeScreen, PeerAlertOverlay,
+  HUE_BY_THEME, HUE_ALERT, getActiveHue,
 });

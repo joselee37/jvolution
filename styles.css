@@ -2,6 +2,19 @@
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=VT323&family=Share+Tech+Mono&display=swap');
 
+/* Register --hue as a typed property so JS-driven changes animate via CSS
+   transitions. Every component using oklch(L C var(--hue)) — text glow,
+   gauges, alive-dot, sweep, blips through CSS — interpolates in lockstep. */
+@property --hue {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 155;
+}
+
+html {
+  transition: --hue 0.55s cubic-bezier(.4,0,.3,1);
+}
+
 :root {
   --bg: #000000;
   --hue: 155;
@@ -35,6 +48,7 @@ html, body {
   justify-content: center;
   background:
     radial-gradient(ellipse at center, #1a1a1a 0%, #050505 70%, #000 100%);
+  transition: background 0.6s ease;
 }
 
 /* —————— CRT effects (composable) —————— */
@@ -435,6 +449,397 @@ html, body {
   background: var(--phos);
   border-radius: 50%;
   animation: alive-pulse 1.4s ease-in-out infinite;
+}
+
+/* Faster, harder pulse for incoming-request alert */
+@keyframes alert-blink {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 6px var(--phos), 0 0 14px var(--phos-mid);
+  }
+  50% {
+    opacity: 0.15;
+    box-shadow: 0 0 2px var(--phos);
+  }
+}
+.alert-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: var(--phos);
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  animation: alert-blink 0.55s ease-in-out infinite;
+}
+
+/* ────────────────────────────────────────────────────────
+   PEER-ALERT MODE
+   When a peer is hailing, --hue is overridden to red in JS so
+   every oklch(L C var(--hue)) channel turns red. Below adds a
+   background pulse and a strobing tint behind the popup so the
+   alert reads at-a-glance even when the operator is looking
+   away from the dot indicator.
+   ──────────────────────────────────────────────────────── */
+@keyframes alert-root-pulse {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  50%      { filter: brightness(1.10) saturate(1.25); }
+}
+body.alert-mode #root {
+  animation: alert-root-pulse 0.85s ease-in-out infinite;
+  background:
+    radial-gradient(ellipse at center, #1f0606 0%, #0a0202 70%, #000 100%);
+}
+
+@keyframes alert-tint-flash {
+  0%, 100% { background: oklch(0.55 0.22 25 / 0.04); }
+  50%      { background: oklch(0.55 0.22 25 / 0.18); }
+}
+.peer-alert {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.93);
+  transition:
+    opacity 0.5s cubic-bezier(.2,.7,.3,1),
+    transform 0.5s cubic-bezier(.2,.7,.3,1);
+}
+.peer-alert.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.peer-alert-tint {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  animation: alert-tint-flash 0.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes alert-frame-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 14px oklch(0.85 0.22 25),
+      0 0 28px oklch(0.55 0.20 25 / 0.6),
+      inset 0 0 12px oklch(0.45 0.16 25 / 0.4);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow:
+      0 0 24px oklch(0.95 0.22 25),
+      0 0 44px oklch(0.65 0.22 25 / 0.7),
+      inset 0 0 18px oklch(0.55 0.18 25 / 0.6);
+  }
+}
+.peer-alert-frame {
+  position: relative;
+  background: #0a0202;
+  border: 2px solid oklch(0.85 0.22 25);
+  padding: 16px 24px 14px;
+  min-width: 220px;
+  text-align: center;
+  animation: alert-frame-pulse 0.85s ease-in-out infinite;
+}
+.peer-alert-corner {
+  position: absolute;
+  width: 12px; height: 12px;
+  border: 2px solid oklch(0.95 0.22 25);
+}
+.peer-alert-corner.tl { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+.peer-alert-corner.tr { top: -2px; right: -2px; border-left: none; border-bottom: none; }
+.peer-alert-corner.bl { bottom: -2px; left: -2px; border-right: none; border-top: none; }
+.peer-alert-corner.br { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+.peer-alert-warn {
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  color: oklch(0.95 0.22 25);
+  text-shadow: 0 0 6px oklch(0.85 0.22 25);
+  margin-bottom: 6px;
+}
+.peer-alert-title {
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  color: oklch(0.97 0.22 25);
+  text-shadow:
+    0 0 6px oklch(0.85 0.22 25),
+    0 0 16px oklch(0.65 0.22 25);
+  margin: 4px 0 2px;
+}
+.peer-alert-sub {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: oklch(0.65 0.16 25);
+  margin-bottom: 4px;
+}
+.peer-alert-divider {
+  height: 1px;
+  background: oklch(0.65 0.20 25 / 0.7);
+  margin: 8px 0;
+}
+.peer-alert-meta {
+  font-size: 9.5px;
+  color: oklch(0.85 0.16 25);
+  letter-spacing: 0.04em;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+}
+.peer-alert-meta > div {
+  display: flex; justify-content: space-between; gap: 12px;
+}
+.peer-alert-meta span { color: oklch(0.55 0.10 25); }
+.peer-alert-meta b {
+  color: oklch(0.97 0.20 25);
+  font-weight: 500;
+  text-shadow: 0 0 4px oklch(0.75 0.20 25);
+}
+.peer-alert-req {
+  margin-top: 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: oklch(0.97 0.22 25);
+  text-shadow: 0 0 6px oklch(0.85 0.22 25);
+}
+.peer-alert-hint {
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: oklch(0.65 0.14 25);
+}
+.peer-alert-hint b {
+  color: oklch(0.95 0.20 25);
+  font-weight: 500;
+}
+
+/* ────────────────────────────────────────────────────────
+   BATTLE SCREEN
+   ──────────────────────────────────────────────────────── */
+.battle-head {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 10px 14px 6px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--phos-grid);
+  z-index: 20;
+}
+.battle-hp {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.battle-hp-name {
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--phos);
+}
+.battle-hp-track {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 11px;
+  position: relative;
+  animation: battle-hp-shake 0.32s ease-out;
+}
+@keyframes battle-hp-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  60% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+.battle-hp-cell {
+  width: 8px;
+  height: 10px;
+  background: oklch(0.10 0.02 var(--hue));
+  border: 1px solid var(--phos-grid);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+.battle-hp-cell.on {
+  background: var(--phos);
+  box-shadow: 0 0 4px var(--phos), inset 0 0 2px oklch(0.95 0.10 var(--hue));
+}
+.battle-hp-num {
+  font-size: 9px;
+  color: var(--phos-mid);
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+.battle-hp[style*="text-align: right"] .battle-hp-track {
+  justify-content: flex-end;
+}
+.battle-hp[style*="text-align: right"] .battle-hp-num {
+  order: -1;
+  margin: 0 6px 0 0;
+}
+
+.battle-turn {
+  text-align: center;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--phos-mid);
+  line-height: 1.15;
+}
+.battle-turn-num {
+  font-size: 13px;
+  color: var(--phos);
+  text-shadow: 0 0 4px var(--phos-mid);
+  letter-spacing: 0.1em;
+}
+
+/* Stage — two creatures + overlay canvas */
+.battle-stage {
+  position: absolute;
+  left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+.battle-creature {
+  position: relative;
+  width: 42%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: filter 0.4s ease;
+}
+.battle-creature.right > * {
+  transform: scaleX(-1);
+}
+.battle-creature.hit {
+  animation: battle-hit-flash 0.4s ease-out;
+}
+@keyframes battle-hit-flash {
+  0%   { filter: brightness(2) saturate(0.4); }
+  100% { filter: brightness(1) saturate(1); }
+}
+
+/* Outcome log */
+.battle-log {
+  position: absolute;
+  left: 0; right: 0;
+  padding: 4px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-top: 1px solid var(--phos-grid);
+  border-bottom: 1px solid var(--phos-grid);
+}
+.battle-log-tag {
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  letter-spacing: 0.18em;
+  color: var(--phos);
+  text-shadow: 0 0 6px var(--phos), 0 0 14px var(--phos-mid);
+}
+.battle-log-tag.crit {
+  color: oklch(0.97 0.22 var(--hue));
+  text-shadow: 0 0 8px var(--phos), 0 0 18px var(--phos);
+  animation: battle-crit-pulse 0.4s ease-out;
+}
+@keyframes battle-crit-pulse {
+  0% { transform: scale(0.7); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.battle-log-crit {
+  font-size: 13px;
+  color: var(--phos-mid);
+  letter-spacing: 0.1em;
+}
+.battle-log-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  color: var(--phos-mid);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+.battle-log-line.dim { color: var(--phos-dim); }
+.battle-log-tag.result-win { color: var(--phos); }
+.battle-log-tag.result-lose { color: oklch(0.55 0.10 var(--hue)); }
+
+/* Action menu */
+.battle-menu-wrap {
+  position: absolute;
+  left: 0; right: 0;
+  padding: 8px 8px 6px;
+}
+.battle-menu {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 5px;
+}
+.battle-menu-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 6px 4px 7px;
+  background: oklch(0.10 0.03 var(--hue));
+  border: 1px solid var(--phos-grid);
+  color: var(--phos-mid);
+  font-family: 'VT323', monospace;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.12s;
+}
+.battle-menu-btn:hover:not(.disabled) {
+  background: oklch(0.16 0.06 var(--hue));
+  color: var(--phos);
+}
+.battle-menu-btn.active {
+  background: oklch(0.22 0.10 var(--hue));
+  border-color: var(--phos);
+  color: var(--phos);
+  text-shadow: 0 0 4px var(--phos);
+  box-shadow:
+    inset 0 0 6px oklch(0.40 0.16 var(--hue) / 0.6),
+    0 0 10px oklch(0.55 0.18 var(--hue) / 0.4);
+  transform: translateY(-1px);
+}
+.battle-menu-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.battle-menu-glyph {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--phos);
+  text-shadow: 0 0 4px var(--phos-mid);
+  margin-bottom: 1px;
+}
+.battle-menu-btn.active .battle-menu-glyph {
+  text-shadow: 0 0 8px var(--phos);
+}
+.battle-menu-label {
+  text-shadow: 0 0 4px var(--phos-mid);
+}
+.battle-menu-hint {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--phos-dim);
+  text-align: center;
+  margin-top: 4px;
 }
 
 /* Bezel variants */

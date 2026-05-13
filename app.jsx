@@ -16,6 +16,40 @@ const STAGES = ['egg', 'larva', 'juvenile', 'adult'];
 
 const NAMES = ['NAUTI', 'KAIJU', 'BLEEP', 'MORSE', 'PROBE', 'KRILL'];
 
+// Personality dice — roll bucket → AI action.
+// Remaining probability mass is "idle" (no action this tick).
+const PERSONALITIES = {
+  aggressive: { challenge: 0.65, friendly: 0.10 },
+  gentle:     { challenge: 0.08, friendly: 0.55 },
+  playful:    { challenge: 0.35, friendly: 0.35 },
+  veteran:    { challenge: 0.25, friendly: 0.15 },
+};
+
+// Fixed mock roster — drifts around the radar; bonds/records build over time.
+const NPC_ROSTER = [
+  { id: 'lumen',  name: 'LUMEN-3', species: 'jelly', stage: 'juvenile', personality: 'gentle' },
+  { id: 'hrrk',   name: 'HRRK',    species: 'squid', stage: 'adult',    personality: 'aggressive' },
+  { id: 'blink',  name: 'BLINK',   species: 'pixel', stage: 'larva',    personality: 'playful' },
+  { id: 'morrow', name: 'MORROW',  species: 'ghost', stage: 'adult',    personality: 'veteran' },
+  { id: 'sift',   name: 'SIFT',    species: 'blob',  stage: 'juvenile', personality: 'playful' },
+  { id: 'arc9',   name: 'ARC-9',   species: 'squid', stage: 'adult',    personality: 'aggressive' },
+  { id: 'nimbus', name: 'NIMBUS',  species: 'jelly', stage: 'larva',    personality: 'gentle' },
+];
+
+function makePeers() {  const n = NPC_ROSTER.length;
+  return NPC_ROSTER.map((roster, i) => ({
+    ...roster,
+    bearing: ((i * 360) / n + (Math.random() - 0.5) * 30 + 360) % 360,
+    range: 0.32 + Math.random() * 0.55,
+    bearingVel: (Math.random() - 0.5) * 2.2,    // deg/sec drift
+    rangeVel: (Math.random() - 0.5) * 0.004,    // bounces between 0.20–0.92
+    bond: 0,
+    battlesWon: 0,
+    battlesLost: 0,
+    cooldown: 20 + Math.random() * 40,          // initial silence so they don't fire instantly
+  }));
+}
+
 function initialState() {
   return {
     name: NAMES[Math.floor(Math.random() * NAMES.length)],
@@ -39,6 +73,39 @@ function initialState() {
     log: [],
     toast: null,
     sound: false,
+    view: 'sonar',      // 'sonar' | 'tree' | 'radar' | 'battle'
+    lineage: [],        // archived previous generations
+    hatchedAt: Date.now(),
+    // — Peer / multiplayer (mocked) —
+    peers: makePeers(),
+    pendingRequest: null,        // { from: peerId, type: 'challenge' | 'breed' }
+    peerEventNonce: 0,           // bumped on every event the terminal should announce
+    peerEventLatest: null,       // { kind, peerId, lines: string[] }
+    // — Battle —
+    battle: null,                // see makeBattle() below
+  };
+}
+
+// Battle state factory. HP=5, cursor on PING by default.
+function makeBattle(peerId) {
+  return {
+    peerId,
+    hpMe: 5,
+    hpMaxMe: 5,
+    hpThem: 5,
+    hpMaxThem: 5,
+    cursor: 0,                 // 0..3 in BATTLE_ACTIONS
+    myMove: null,
+    theirMove: null,
+    phase: 'choose',           // 'choose' | 'reveal' | 'damage' | 'end'
+    log: [],                   // newest first; each { tag, line, crit, dmgMe, dmgThem }
+    result: null,              // 'win' | 'lose' | 'flee' | 'draw'
+    turn: 1,
+    myMoveHistory: [],         // for veteran AI read & react
+    lastDmgMe: 0,
+    lastDmgThem: 0,
+    flashNonceMe: 0,
+    flashNonceThem: 0,
   };
 }
 
@@ -172,8 +239,295 @@ function reduce(s, a) {
     }
     case 'rename':
       return { ...s, name: a.name, log: log('RENAME — ' + a.name) };
-    case 'reset':
-      return { ...initialState(), gen: s.gen + 1 };
+    case 'setView':
+      return { ...s, view: a.view };
+    case 'peerTick': {
+      const dt = a.dt;
+      let pendingRequest = s.pendingRequest;
+      let peerEventNonce = s.peerEventNonce;
+      let peerEventLatest = s.peerEventLatest;
+      let toast = s.toast;
+
+      const peers = s.peers.map((p) => {
+        // Drift position
+        let bearing = ((p.bearing + p.bearingVel * dt) % 360 + 360) % 360;
+        let range = p.range + p.rangeVel * dt;
+        let rangeVel = p.rangeVel;
+        if (range <= 0.20) { range = 0.20; rangeVel = Math.abs(rangeVel); }
+        if (range >= 0.92) { range = 0.92; rangeVel = -Math.abs(rangeVel); }
+        let cooldown = Math.max(0, p.cooldown - dt);
+        let bond = p.bond;
+
+        // Roll AI only if cooldown elapsed, no pending request, and dice say so.
+        // The 0.06/tick rate (with 1s ticks) means ~3.6%/sec across the whole
+        // roster — comfortable cadence without being spammy.
+        if (cooldown === 0 && !pendingRequest && Math.random() < 0.06) {
+          const profile = PERSONALITIES[p.personality] || PERSONALITIES.playful;
+          const roll = Math.random();
+          if (roll < profile.challenge) {
+            pendingRequest = { from: p.id, type: 'challenge' };
+            toast = `${p.name} CHALLENGES`;
+            peerEventNonce += 1;
+            peerEventLatest = {
+              kind: 'challenge',
+              peerId: p.id,
+              lines: [
+                '',
+                '▸▸▸ INCOMING ▸▸▸',
+                `  ${p.name} (${p.species} · ${p.stage}) pings the channel.`,
+                '  type `accept` to engage, `decline` to dismiss.',
+                '',
+              ],
+            };
+            cooldown = 90 + Math.random() * 60;
+          } else if (roll < profile.challenge + profile.friendly) {
+            bond = Math.min(1, bond + 0.05);
+            toast = `${p.name} APPROACHES`;
+            peerEventNonce += 1;
+            peerEventLatest = {
+              kind: 'friendly',
+              peerId: p.id,
+              lines: [
+                `▸ ${p.name} drifts close. peer-bond +5% → ${Math.round(bond * 100)}%.`,
+              ],
+            };
+            cooldown = 60 + Math.random() * 40;
+          } else {
+            cooldown = 30 + Math.random() * 40;
+          }
+        }
+
+        return { ...p, bearing, range, rangeVel, cooldown, bond };
+      });
+
+      return {
+        ...s, peers, pendingRequest, toast,
+        peerEventNonce, peerEventLatest,
+      };
+    }
+    case 'peerSetBond':
+      return {
+        ...s,
+        peers: s.peers.map((p) =>
+          p.id === a.id ? { ...p, bond: Math.max(0, Math.min(1, p.bond + a.delta)) } : p,
+        ),
+      };
+    case 'acceptRequest': {
+      // Phase 1 stub: bond + log; Phase 2 will launch the real battle.
+      const req = s.pendingRequest;
+      if (!req) return s;
+      const peer = s.peers.find((p) => p.id === req.from);
+      const peerEventNonce = s.peerEventNonce + 1;
+      const peerEventLatest = {
+        kind: 'accept',
+        peerId: req.from,
+        lines: [
+          `▸ accepted ${peer?.name || req.from}'s ${req.type}.`,
+          '  [BATTLE MODULE PENDING — engagement queued for v2]',
+        ],
+      };
+      return {
+        ...s,
+        pendingRequest: null,
+        peerEventNonce,
+        peerEventLatest,
+        peers: s.peers.map((p) =>
+          p.id === req.from
+            ? { ...p, bond: Math.min(1, p.bond + 0.04) }
+            : p,
+        ),
+        toast: 'ENGAGEMENT QUEUED',
+      };
+    }
+    case 'declineRequest': {
+      const req = s.pendingRequest;
+      if (!req) return s;
+      const peer = s.peers.find((p) => p.id === req.from);
+      const peerEventNonce = s.peerEventNonce + 1;
+      const peerEventLatest = {
+        kind: 'decline',
+        peerId: req.from,
+        lines: [`▸ declined ${peer?.name || req.from}.`],
+      };
+      return {
+        ...s,
+        pendingRequest: null,
+        peerEventNonce,
+        peerEventLatest,
+        toast: null,
+      };
+    }
+    // ── Battle ────────────────────────────────────────────────
+    case 'battleStart': {
+      // Clears the pending challenge that triggered us so the alert overlay
+      // dismisses, and swaps the view to 'battle'.
+      const peerId = a.peerId;
+      const peer = s.peers.find((p) => p.id === peerId);
+      if (!peer) return s;
+      return {
+        ...s,
+        view: 'battle',
+        battle: makeBattle(peerId),
+        pendingRequest: null,
+        toast: `ENGAGE — ${peer.name}`,
+      };
+    }
+    case 'battleCursor': {
+      if (!s.battle || s.battle.phase !== 'choose') return s;
+      const n = 4;
+      let cursor = s.battle.cursor;
+      if (a.set != null) cursor = a.set;
+      else if (a.delta) cursor = (cursor + a.delta + n) % n;
+      return { ...s, battle: { ...s.battle, cursor } };
+    }
+    case 'battleCommit': {
+      if (!s.battle || s.battle.phase !== 'choose') return s;
+      const peer = s.peers.find((p) => p.id === s.battle.peerId);
+      const my = BATTLE_ACTIONS[s.battle.cursor];
+      const their = pickNpcMove(peer, s.battle);
+      return {
+        ...s,
+        battle: {
+          ...s.battle,
+          myMove: my,
+          theirMove: their,
+          phase: 'reveal',
+          myMoveHistory: [...s.battle.myMoveHistory, my],
+        },
+      };
+    }
+    case 'battleResolve': {
+      if (!s.battle || s.battle.phase !== 'reveal') return s;
+      const peer = s.peers.find((p) => p.id === s.battle.peerId);
+      const out = resolveBattleTurn(s.battle.myMove, s.battle.theirMove, s, peer);
+      const narration = battleNarration(s.battle.myMove, s.battle.theirMove, out, s.name, peer.name);
+      return {
+        ...s,
+        battle: {
+          ...s.battle,
+          phase: 'damage',
+          lastDmgMe: out.me,
+          lastDmgThem: out.them,
+          log: [
+            { tag: out.tag, crit: out.crit, dmgMe: out.me, dmgThem: out.them, line: narration },
+            ...s.battle.log,
+          ].slice(0, 6),
+          flashNonceMe: s.battle.flashNonceMe + (out.me > 0 ? 1 : 0),
+          flashNonceThem: s.battle.flashNonceThem + (out.them > 0 ? 1 : 0),
+        },
+      };
+    }
+    case 'battleApplyDamage': {
+      if (!s.battle || s.battle.phase !== 'damage') return s;
+      const hpMe = Math.max(0, s.battle.hpMe - s.battle.lastDmgMe);
+      const hpThem = Math.max(0, s.battle.hpThem - s.battle.lastDmgThem);
+      const ko = hpMe <= 0 || hpThem <= 0;
+      const result = ko
+        ? (hpMe <= 0 && hpThem <= 0 ? 'draw' : hpMe <= 0 ? 'lose' : 'win')
+        : null;
+      return {
+        ...s,
+        battle: {
+          ...s.battle,
+          hpMe, hpThem,
+          phase: ko ? 'end' : 'choose',
+          result,
+          myMove: ko ? s.battle.myMove : null,
+          theirMove: ko ? s.battle.theirMove : null,
+          turn: ko ? s.battle.turn : s.battle.turn + 1,
+        },
+      };
+    }
+    case 'battleFlee': {
+      if (!s.battle || s.battle.phase === 'end') return s;
+      return {
+        ...s,
+        battle: { ...s.battle, phase: 'end', result: 'flee' },
+      };
+    }
+    case 'battleEnd': {
+      // Apply rewards/penalties, bump records, exit back to sonar.
+      if (!s.battle) return s;
+      const peer = s.peers.find((p) => p.id === s.battle.peerId);
+      const result = s.battle.result;
+      let happiness = s.happiness;
+      let discipline = s.discipline;
+      let evolveProgress = s.evolveProgress;
+      let bondDelta = 0;
+      let peers = s.peers;
+      if (result === 'win') {
+        evolveProgress = clamp(evolveProgress + 0.20);
+        happiness = clamp(happiness + 0.05);
+        bondDelta = 0.10;
+        peers = s.peers.map((p) =>
+          p.id === peer.id
+            ? { ...p, battlesWon: (p.battlesWon || 0), battlesLost: (p.battlesLost || 0) + 1,
+                bond: Math.min(1, p.bond + bondDelta) }
+            : p,
+        );
+      } else if (result === 'lose') {
+        happiness = clamp(happiness - 0.15);
+        discipline = clamp(discipline + 0.05);
+        bondDelta = 0.04;
+        peers = s.peers.map((p) =>
+          p.id === peer.id
+            ? { ...p, battlesWon: (p.battlesWon || 0) + 1, battlesLost: (p.battlesLost || 0),
+                bond: Math.min(1, p.bond + bondDelta) }
+            : p,
+        );
+      } else if (result === 'draw') {
+        happiness = clamp(happiness + 0.03);
+        bondDelta = 0.06;
+        peers = s.peers.map((p) =>
+          p.id === peer.id ? { ...p, bond: Math.min(1, p.bond + bondDelta) } : p,
+        );
+      } else if (result === 'flee') {
+        happiness = clamp(happiness - 0.05);
+        bondDelta = -0.05;
+        peers = s.peers.map((p) =>
+          p.id === peer.id ? { ...p, bond: Math.max(0, p.bond + bondDelta) } : p,
+        );
+      }
+      const toast =
+        result === 'win'  ? 'VICTORY' :
+        result === 'lose' ? 'DEFEATED' :
+        result === 'draw' ? 'STALEMATE' :
+        result === 'flee' ? 'DISENGAGED' : '';
+      return {
+        ...s,
+        view: 'sonar',
+        battle: null,
+        happiness, discipline, evolveProgress, peers,
+        toast,
+      };
+    }
+    case 'reset': {
+      const epitaph = {
+        gen: s.gen,
+        name: s.name,
+        stage: s.stage,
+        cycles: s.cycles,
+        happiness: Math.round(s.happiness * 100),
+        energy: Math.round(s.energy * 100),
+        bond: Math.round(s.bond * 100),
+        discipline: Math.round(s.discipline * 100),
+        training: Math.round(s.training * 100),
+        hatchedAt: s.hatchedAt,
+        archivedAt: Date.now(),
+      };
+      const fresh = initialState();
+      return {
+        ...fresh,
+        gen: s.gen + 1,
+        lineage: [...s.lineage, epitaph],
+        view: s.view,
+        // Peers, bonds, and pending state are independent of your creature.
+        peers: s.peers,
+        pendingRequest: s.pendingRequest,
+        peerEventNonce: s.peerEventNonce,
+        peerEventLatest: s.peerEventLatest,
+      };
+    }
     case 'toggleSound':
       return { ...s, sound: !s.sound, toast: s.sound ? 'MUTED' : 'SOUND ON' };
     case 'toast':
@@ -184,6 +538,41 @@ function reduce(s, a) {
 }
 
 let __setToast = () => {};
+
+// Short narration line for the battle log. Reads as "ME pings — BLOCKED" etc.
+function battleNarration(myMove, theirMove, out, myName, theirName) {
+  const verbs = {
+    ping: 'pings', charge: 'charges', dodge: 'evades', screech: 'screeches',
+  };
+  const me = verbs[myMove] || myMove;
+  const them = verbs[theirMove] || theirMove;
+  if (out.tag === 'MISS') return `${myName} ${me}, ${theirName} ${them} — both whiff`;
+  if (out.tag === 'INTERFERENCE') return `mutual ${myMove} — waves overlap`;
+  if (out.tag === 'CLASH') return `both charge — shockwave between`;
+  if (out.tag === 'FEEDBACK') return `dual screech — feedback loop`;
+  if (out.tag === 'BLOCKED') {
+    return out.me === 0 && out.them === 0
+      ? (myMove === 'dodge' ? `${myName} evades the pulse` : `${theirName} evades the pulse`)
+      : `pulse absorbed`;
+  }
+  if (out.tag === 'COUNTERED') {
+    return myMove === 'screech'
+      ? `${myName} reflects — ${theirName} takes ${out.them.toFixed(1)}`
+      : `${theirName} reflects — ${myName} takes ${out.me.toFixed(1)}`;
+  }
+  if (out.tag === 'INTERRUPT') {
+    return myMove === 'ping'
+      ? `${myName}'s pulse interrupts the charge — ${out.them.toFixed(1)}`
+      : `${theirName}'s pulse interrupts the charge — ${out.me.toFixed(1)}`;
+  }
+  if (out.tag === 'BROKEN') {
+    if (myMove === 'charge') {
+      return `${myName} smashes through — ${out.them.toFixed(1)} dmg`;
+    }
+    return `${theirName} smashes through — ${out.me.toFixed(1)} dmg`;
+  }
+  return '';
+}
 
 // ─────────────────────────────────────────────────────────────
 // Bezel — wraps the inner CRT in a physical-feeling housing
@@ -294,12 +683,28 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [state, dispatch] = React.useReducer(reduce, null, initialState);
 
+  // Keep the last peer-alert payload around after dismiss so the popup
+  // can fade out smoothly while still showing the right info.
+  const [lastAlert, setLastAlert] = React.useState(null);
   React.useEffect(() => {
-    document.documentElement.style.setProperty('--hue', HUE_BY_THEME[t.theme]);
+    if (state.pendingRequest) {
+      const peer = state.peers.find((p) => p.id === state.pendingRequest.from);
+      if (peer) setLastAlert({ peer, type: state.pendingRequest.type });
+    }
+  }, [state.pendingRequest, state.peers]);
+
+  React.useEffect(() => {
+    // When a peer is hailing, override the entire phosphor hue to RED so
+    // every component using oklch(L C var(--hue)) (text, LEDs, gauges,
+    // sweep, blips via the canvas hue prop) shifts in lockstep.
+    const alertActive = !!state.pendingRequest;
+    const hue = alertActive ? 25 : HUE_BY_THEME[t.theme];
+    document.documentElement.style.setProperty('--hue', hue);
     document.documentElement.style.setProperty('--scan-strength', t.scanlines ? 0.18 * t.crt : 0);
     document.documentElement.style.setProperty('--noise-strength', t.noise ? 0.12 * t.crt : 0);
     document.documentElement.style.setProperty('--glow-strength', t.crt);
-  }, [t.theme, t.scanlines, t.noise, t.crt]);
+    document.body.classList.toggle('alert-mode', alertActive);
+  }, [t.theme, t.scanlines, t.noise, t.crt, state.pendingRequest]);
 
   // toast clearing
   __setToast = (msg) => dispatch({ type: 'toast', msg });
@@ -315,6 +720,34 @@ function App() {
     const id = setInterval(() => dispatch({ type: 'tick', dt: 1 }), 1500);
     return () => clearInterval(id);
   }, []);
+
+  // Peer tick — drift positions + roll NPC AI. 1s cadence keeps the
+  // radar motion smooth while staying cheap.
+  React.useEffect(() => {
+    const id = setInterval(() => dispatch({ type: 'peerTick', dt: 1 }), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Battle phase scheduler — drives reveal → damage → next-turn / end timing.
+  // Each phase has a fixed duration so the visuals have time to land.
+  React.useEffect(() => {
+    if (!state.battle) return undefined;
+    const phase = state.battle.phase;
+    const result = state.battle.result;
+    if (phase === 'reveal') {
+      const id = setTimeout(() => dispatch({ type: 'battleResolve' }), 700);
+      return () => clearTimeout(id);
+    }
+    if (phase === 'damage') {
+      const id = setTimeout(() => dispatch({ type: 'battleApplyDamage' }), 500);
+      return () => clearTimeout(id);
+    }
+    if (phase === 'end' && result) {
+      const id = setTimeout(() => dispatch({ type: 'battleEnd' }), 1800);
+      return () => clearTimeout(id);
+    }
+    return undefined;
+  }, [state.battle?.phase, state.battle?.turn, state.battle?.result]);
 
   // Evolution sequence
   React.useEffect(() => {
@@ -363,16 +796,62 @@ function App() {
             </div>
           </div>
 
-          {/* 1:1 SONAR bezel */}
+          {/* 1:1 main bezel — SONAR / LINEAGE / RADAR / BATTLE depending on state.view */}
           <div style={{ padding: '8px 8px 0' }}>
-            <Bezel variant={t.bezel} label={`SONAR-OBS · MK.III · ${state.stage.toUpperCase()}`}>
-              <SonarScreen
-                width={innerSquare}
-                height={innerSquare}
-                state={state}
-                dispatch={dispatch}
-                tweaks={t}
-              />
+            <Bezel
+              variant={t.bezel}
+              label={
+                state.view === 'tree'
+                  ? `LINEAGE-ARCHIVE · MK.III · G${String(state.gen).padStart(2, '0')}`
+                  : state.view === 'radar'
+                  ? `LRRS-RADAR · MK.III · ${state.peers.length} CONTACTS`
+                  : state.view === 'battle'
+                  ? `ENGAGEMENT · CH.07 · R.${String(state.battle?.turn || 1).padStart(2, '0')}`
+                  : `SONAR-OBS · MK.III · ${state.stage.toUpperCase()}`
+              }
+            >
+              <div style={{ position: 'relative', width: innerSquare, height: innerSquare }}>
+                {state.view === 'tree' ? (
+                  <TreeScreen
+                    width={innerSquare}
+                    height={innerSquare}
+                    state={state}
+                    dispatch={dispatch}
+                    tweaks={t}
+                  />
+                ) : state.view === 'radar' ? (
+                  <RadarScreen
+                    width={innerSquare}
+                    height={innerSquare}
+                    state={state}
+                    dispatch={dispatch}
+                    tweaks={t}
+                  />
+                ) : state.view === 'battle' ? (
+                  <BattleScreen
+                    width={innerSquare}
+                    height={innerSquare}
+                    state={state}
+                    dispatch={dispatch}
+                    tweaks={t}
+                  />
+                ) : (
+                  <SonarScreen
+                    width={innerSquare}
+                    height={innerSquare}
+                    state={state}
+                    dispatch={dispatch}
+                    tweaks={t}
+                  />
+                )}
+                {lastAlert && (
+                  <PeerAlertOverlay
+                    active={!!state.pendingRequest}
+                    peer={lastAlert.peer}
+                    type={lastAlert.type}
+                  />
+                )}
+              </div>
             </Bezel>
           </div>
 
