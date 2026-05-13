@@ -455,6 +455,7 @@ const COMMANDS = {
     '  challenge <n> — challenge nearby unit to battle',
     '  accept        — accept incoming request',
     '  decline       — dismiss incoming request',
+    '  dnd [on|off]  — block incoming challenges (auto on in battle)',
     '  flee          — disengage from current battle',
     '  feed [item]   — feed creature',
     '  play          — happiness +',
@@ -535,6 +536,7 @@ function TerminalScreen({ width, height, state, dispatch, tweaks }) {
     const inBattle = !!state.battle;
     const BATTLE_ALLOWED = new Set([
       'flee', 'forfeit', 'help', 'whoami', 'clear', 'echo', 'mute', 'sound',
+      'dnd',
     ]);
     if (inBattle && !BATTLE_ALLOWED.has(verb)) {
       respond([`${verb}: locked — engagement in progress. (\`flee\` to disengage)`]);
@@ -698,6 +700,46 @@ function TerminalScreen({ width, height, state, dispatch, tweaks }) {
           dispatch({ type: 'declineRequest' });
           respond([]);
         }
+        break;
+      }
+      case 'dnd': {
+        const arg = (args[0] || '').toLowerCase();
+        const forced = !!state.battle;
+        // Resolve target state. With no arg, toggle. `on`/`off` are explicit.
+        let target;
+        if (arg === '' || arg === 'toggle') target = !state.dnd;
+        else if (arg === 'on' || arg === '1' || arg === 'true') target = true;
+        else if (arg === 'off' || arg === '0' || arg === 'false') target = false;
+        else { respond(['usage: dnd [on|off]']); break; }
+
+        // In-battle DND is forced — disabling is a no-op and we say so.
+        if (forced && target === false) {
+          respond([
+            '▸ dnd is forced on while engaged.',
+            '  (`flee` to disengage, then `dnd off`)',
+          ]);
+          break;
+        }
+
+        // No state change needed? Just echo current status.
+        if (target === state.dnd && !forced) {
+          respond([`▸ dnd already ${target ? 'on' : 'off'}.`]);
+          break;
+        }
+
+        // Enabling with a pending challenge in the queue: auto-decline it so the
+        // user isn't left with a stale incoming request to clear by hand.
+        let extra = [];
+        if (target === true && state.pendingRequest?.type === 'challenge') {
+          dispatch({ type: 'declineRequest' });
+          const peer = state.peers.find((p) => p.id === state.pendingRequest.from);
+          extra.push(`▸ pending challenge from ${peer?.name || 'unknown'} declined.`);
+        }
+        dispatch({ type: 'setDnd', on: target });
+        respond([
+          `▸ dnd ${target ? 'ON' : 'OFF'} — incoming challenges ${target ? 'blocked' : 'allowed'}.`,
+          ...extra,
+        ]);
         break;
       }
       case 'bond': {

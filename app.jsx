@@ -81,6 +81,8 @@ function initialState() {
     pendingRequest: null,        // { from: peerId, type: 'challenge' | 'breed' }
     peerEventNonce: 0,           // bumped on every event the terminal should announce
     peerEventLatest: null,       // { kind, peerId, lines: string[] }
+    dnd: false,                  // do-not-disturb — suppress incoming challenges.
+                                 // Effective DND is also implied by an active battle.
     // — Battle —
     battle: null,                // see makeBattle() below
   };
@@ -261,10 +263,20 @@ function reduce(s, a) {
         // Roll AI only if cooldown elapsed, no pending request, and dice say so.
         // The 0.06/tick rate (with 1s ticks) means ~3.6%/sec across the whole
         // roster — comfortable cadence without being spammy.
+        // DND (explicit or implied by active battle) suppresses challenges; the
+        // roll outcome is treated as a no-op with the short skip cooldown so we
+        // don't redirect would-be challenges into friendly drifts.
+        const dndActive = s.dnd || !!s.battle;
         if (cooldown === 0 && !pendingRequest && Math.random() < 0.06) {
           const profile = PERSONALITIES[p.personality] || PERSONALITIES.playful;
           const roll = Math.random();
-          if (roll < profile.challenge) {
+          const wantsChallenge = roll < profile.challenge;
+          const wantsFriendly = !wantsChallenge && roll < profile.challenge + profile.friendly;
+          if (wantsChallenge && dndActive) {
+            // Challenge muted by DND — short cooldown so this peer re-rolls soon
+            // once DND clears.
+            cooldown = 30 + Math.random() * 40;
+          } else if (wantsChallenge) {
             pendingRequest = { from: p.id, type: 'challenge' };
             toast = `${p.name} CHALLENGES`;
             peerEventNonce += 1;
@@ -280,7 +292,7 @@ function reduce(s, a) {
               ],
             };
             cooldown = 90 + Math.random() * 60;
-          } else if (roll < profile.challenge + profile.friendly) {
+          } else if (wantsFriendly) {
             bond = Math.min(1, bond + 0.05);
             toast = `${p.name} APPROACHES`;
             peerEventNonce += 1;
@@ -530,6 +542,8 @@ function reduce(s, a) {
     }
     case 'toggleSound':
       return { ...s, sound: !s.sound, toast: s.sound ? 'MUTED' : 'SOUND ON' };
+    case 'setDnd':
+      return { ...s, dnd: !!a.on, toast: a.on ? 'DND ON' : 'DND OFF' };
     case 'toast':
       return { ...s, toast: a.msg };
     default:
