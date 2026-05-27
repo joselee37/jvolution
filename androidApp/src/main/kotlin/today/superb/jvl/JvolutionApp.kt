@@ -1,9 +1,9 @@
-package com.jetbrains.kmpapp
+package today.superb.jvl
 
 import android.app.Application
-import com.jetbrains.kmpapp.di.initKoin
+import today.superb.jvl.di.initKoin
 
-class MuseumApp : Application() {
+class JvolutionApp : Application() {
     override fun onCreate() {
         super.onCreate()
         initKoin()

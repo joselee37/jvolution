@@ -1,12 +1,12 @@
-package com.jetbrains.kmpapp.di
+package today.superb.jvl.di
 
-import com.jetbrains.kmpapp.data.InMemoryMuseumStorage
-import com.jetbrains.kmpapp.data.KtorMuseumApi
-import com.jetbrains.kmpapp.data.MuseumApi
-import com.jetbrains.kmpapp.data.MuseumRepository
-import com.jetbrains.kmpapp.data.MuseumStorage
-import com.jetbrains.kmpapp.screens.detail.DetailViewModel
-import com.jetbrains.kmpapp.screens.list.ListViewModel
+import today.superb.jvl.data.InMemoryMuseumStorage
+import today.superb.jvl.data.KtorMuseumApi
+import today.superb.jvl.data.MuseumApi
+import today.superb.jvl.data.MuseumRepository
+import today.superb.jvl.data.MuseumStorage
+import today.superb.jvl.screens.detail.DetailViewModel
+import today.superb.jvl.screens.list.ListViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType

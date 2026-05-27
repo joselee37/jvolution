@@ -1,4 +1,4 @@
-package com.jetbrains.kmpapp
+package today.superb.jvl
 
 import androidx.compose.ui.window.ComposeUIViewController
 

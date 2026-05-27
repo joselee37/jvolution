@@ -1,4 +1,4 @@
-package com.jetbrains.kmpapp.data
+package today.superb.jvl.data
 
 import kotlinx.serialization.Serializable
 

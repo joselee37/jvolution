@@ -1,8 +1,8 @@
-package com.jetbrains.kmpapp.screens.detail
+package today.superb.jvl.screens.detail
 
 import androidx.lifecycle.ViewModel
-import com.jetbrains.kmpapp.data.MuseumObject
-import com.jetbrains.kmpapp.data.MuseumRepository
+import today.superb.jvl.data.MuseumObject
+import today.superb.jvl.data.MuseumRepository
 import kotlinx.coroutines.flow.Flow
 
 class DetailViewModel(private val museumRepository: MuseumRepository) : ViewModel() {

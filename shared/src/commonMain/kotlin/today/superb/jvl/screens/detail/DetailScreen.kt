@@ -1,4 +1,4 @@
-package com.jetbrains.kmpapp.screens.detail
+package today.superb.jvl.screens.detail
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
@@ -35,18 +35,18 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
-import com.jetbrains.kmpapp.data.MuseumObject
-import com.jetbrains.kmpapp.screens.EmptyScreenContent
-import kmp_app_template.shared.generated.resources.Res
-import kmp_app_template.shared.generated.resources.back
-import kmp_app_template.shared.generated.resources.label_artist
-import kmp_app_template.shared.generated.resources.label_credits
-import kmp_app_template.shared.generated.resources.label_date
-import kmp_app_template.shared.generated.resources.label_department
-import kmp_app_template.shared.generated.resources.label_dimensions
-import kmp_app_template.shared.generated.resources.label_medium
-import kmp_app_template.shared.generated.resources.label_repository
-import kmp_app_template.shared.generated.resources.label_title
+import today.superb.jvl.data.MuseumObject
+import today.superb.jvl.screens.EmptyScreenContent
+import jvolution.shared.generated.resources.Res
+import jvolution.shared.generated.resources.back
+import jvolution.shared.generated.resources.label_artist
+import jvolution.shared.generated.resources.label_credits
+import jvolution.shared.generated.resources.label_date
+import jvolution.shared.generated.resources.label_department
+import jvolution.shared.generated.resources.label_dimensions
+import jvolution.shared.generated.resources.label_medium
+import jvolution.shared.generated.resources.label_repository
+import jvolution.shared.generated.resources.label_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
