@@ -15,7 +15,9 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 SITE=jvolution.superb.today
-ROOT=/home/jose/dev/jvolution/public
+# Derive the deploy root from this script's location so moving the demo/
+# tree (as the KMP rewrite did) does not strand nginx on a stale path.
+ROOT=$(cd "$(dirname "$0")/.." && pwd)/public
 AVAIL=/etc/nginx/sites-available/${SITE}.conf
 ENABLED=/etc/nginx/sites-enabled/${SITE}.conf
 LIVE_DIR=/etc/letsencrypt/live/${SITE}
