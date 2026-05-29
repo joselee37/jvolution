@@ -34,7 +34,12 @@ fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
         }
 
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-            DotCreatureCanvas(pingNonce = state.pingNonce, modifier = Modifier.fillMaxSize())
+            DotCreatureCanvas(
+                pingNonce = state.pingNonce,
+                happiness = state.happiness,
+                asleep = state.asleep,
+                modifier = Modifier.fillMaxSize(),
+            )
 
             state.toast?.let { toast ->
                 Box(
