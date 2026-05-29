@@ -9,9 +9,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private val rng = SeededRng(42L)
+private fun rng() = SeededRng(42L)
 private fun state() = GameState.initial(name = "NAUTI", now = 0L)
-private fun reply(input: String, s: GameState = state()) = respond(parse(input), s, rng)
+private fun reply(input: String, s: GameState = state()) = respond(parse(input), s, rng())
 
 class TerminalResponderTest {
 
@@ -54,11 +54,24 @@ class TerminalResponderTest {
     }
 
     @Test
-    fun sleep_response_uses_pre_toggle_state() {
-        // awake → going to sleep
-        assertTrue(reply("sleep").lines.any { it.text == "▸ lights out. unit asleep." })
-        // asleep → waking
-        assertTrue(reply("wake", state().copy(asleep = true)).lines.any { it.text == "▸ unit awakened." })
+    fun sleep_and_wake_are_idempotent() {
+        // sleep: awake → 잠들기(액션), 이미 자고 있으면 no-op
+        val sleeping = reply("sleep")
+        assertEquals(Action.Sleep, sleeping.action)
+        assertTrue(sleeping.lines.any { it.text == "▸ lights out. unit asleep." })
+
+        val alreadyAsleep = reply("sleep", state().copy(asleep = true))
+        assertNull(alreadyAsleep.action)
+        assertTrue(alreadyAsleep.lines.any { it.text == "▸ already resting." })
+
+        // wake: asleep → 깨우기(액션), 이미 깨어 있으면 no-op
+        val waking = reply("wake", state().copy(asleep = true))
+        assertEquals(Action.Sleep, waking.action)
+        assertTrue(waking.lines.any { it.text == "▸ unit awakened." })
+
+        val alreadyAwake = reply("wake")
+        assertNull(alreadyAwake.action)
+        assertTrue(alreadyAwake.lines.any { it.text == "▸ already awake." })
     }
 
     @Test
@@ -116,5 +129,31 @@ class TerminalResponderTest {
     fun cat_notes_reads_file_else_errors() {
         assertTrue(reply("cat notes.txt").lines.any { it.text == "— field notes —" })
         assertTrue(reply("cat secret").lines.first().text.contains("no such file"))
+    }
+
+    @Test
+    fun cat_with_no_arg_reports_empty_file() {
+        // 데모는 JS의 `undefined`를 출력하나, 포팅은 빈 문자열로 정규화(의도적 개선).
+        assertEquals("cat: : no such file", reply("cat").lines.first().text)
+    }
+
+    @Test
+    fun help_lists_only_implemented_commands() {
+        // HELP_LINES는 손유지 리스트 — 미구현/미지원 verb가 섞이면 드리프트. 모든 항목이 실제로 parse되는지 가드.
+        val verbs = HELP_LINES
+            .drop(1) // "AVAILABLE COMMANDS:" 헤더
+            .map { it.substringBefore("—").trim() }
+            .filter { it.isNotEmpty() }
+            .flatMap { it.substringBefore("<").substringBefore("[").split("/", " ") }
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        assertTrue(verbs.isNotEmpty())
+        for (verb in verbs) {
+            val cmd = parse(verb)
+            assertTrue(
+                cmd !is TerminalCommand.Unknown && cmd !is TerminalCommand.ModulePending,
+                "help가 '$verb'를 안내하지만 parser 결과가 $cmd",
+            )
+        }
     }
 }

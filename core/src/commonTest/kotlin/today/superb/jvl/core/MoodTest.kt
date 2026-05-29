@@ -26,8 +26,21 @@ class MoodTest {
     }
 
     @Test
+    fun scolded_reachable_in_isolation() {
+        // disciplineFlash는 어떤 reducer 분기도 켜지 않아 1차에서 도달 불가(데모 버그 보존).
+        // 분기 자체는 격리 시 도달함을 문서화 — 2차 재설계 시 회귀 가드.
+        assertEquals(Mood.SCOLDED, moodLabel(base().copy(disciplineFlash = true)))
+    }
+
+    @Test
     fun distressed_when_dirty_above_threshold() {
         assertEquals(Mood.DISTRESSED, moodLabel(base().copy(dirty = 0.71f)))
+    }
+
+    @Test
+    fun distressed_outranks_hungry() {
+        // dirty>0.7 와 hunger>0.75 동시 → DISTRESSED 우선(우선순위 4 > 5).
+        assertEquals(Mood.DISTRESSED, moodLabel(base().copy(dirty = 0.8f, hunger = 0.9f)))
     }
 
     @Test

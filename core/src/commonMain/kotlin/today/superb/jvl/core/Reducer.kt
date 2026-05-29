@@ -142,6 +142,7 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
 
         is Action.Rename -> state.copy(name = action.name, log = log("RENAME — ${action.name}"))
 
+        // 2차 선반영 — 1차에서는 dispatch되지 않음(Action.SetView KDoc 참조).
         is Action.SetView -> state.copy(view = action.view)
 
         Action.ClearToast -> state.copy(toast = null)

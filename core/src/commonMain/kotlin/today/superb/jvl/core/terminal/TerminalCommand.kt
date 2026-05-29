@@ -18,8 +18,11 @@ sealed interface TerminalCommand {
     data object Play : TerminalCommand
     data object Clean : TerminalCommand
 
-    /** `sleep` / `wake` — 둘 다 토글. */
+    /** `sleep` — 멱등: 이미 자고 있으면 no-op. */
     data object Sleep : TerminalCommand
+
+    /** `wake` — 멱등: 이미 깨어 있으면 no-op. */
+    data object Wake : TerminalCommand
     data object Train : TerminalCommand
 
     /** `scold` / `discipline`. */

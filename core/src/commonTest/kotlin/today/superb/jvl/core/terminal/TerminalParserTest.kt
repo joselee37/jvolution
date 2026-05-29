@@ -19,9 +19,10 @@ class TerminalParserTest {
     }
 
     @Test
-    fun sleep_and_wake_map_to_same_command() {
+    fun sleep_and_wake_are_distinct_commands() {
+        // 멱등 처리를 위해 분리(responder가 현재 상태를 보고 no-op 판단).
         assertEquals(TerminalCommand.Sleep, parse("sleep"))
-        assertEquals(TerminalCommand.Sleep, parse("wake"))
+        assertEquals(TerminalCommand.Wake, parse("wake"))
     }
 
     @Test

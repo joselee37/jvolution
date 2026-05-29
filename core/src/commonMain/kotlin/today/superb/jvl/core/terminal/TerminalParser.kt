@@ -31,7 +31,8 @@ fun parse(input: String): TerminalCommand {
         "feed" -> TerminalCommand.Feed(args.firstOrNull())
         "play" -> TerminalCommand.Play
         "clean" -> TerminalCommand.Clean
-        "sleep", "wake" -> TerminalCommand.Sleep
+        "sleep" -> TerminalCommand.Sleep
+        "wake" -> TerminalCommand.Wake
         "train" -> TerminalCommand.Train
         "scold", "discipline" -> TerminalCommand.Scold
         "heal" -> TerminalCommand.Heal

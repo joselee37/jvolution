@@ -5,40 +5,6 @@ import today.superb.jvl.core.GameState
 import today.superb.jvl.core.Rng
 import today.superb.jvl.core.talkLine
 
-private val HELP_LINES = listOf(
-    "AVAILABLE COMMANDS:",
-    "  status        — vitals readout (boxed)",
-    "  ping          — sonar pulse on current view",
-    "  feed [item]   — feed creature",
-    "  play          — happiness +",
-    "  clean         — hygiene +",
-    "  sleep / wake  — toggle sleep",
-    "  train         — training +",
-    "  scold         — discipline +",
-    "  heal          — apply biopatch",
-    "  evolve        — advance stage",
-    "  talk          — converse",
-    "  name <str>    — rename unit",
-    "  whoami        — operator info",
-    "  history       — show log",
-    "  clear         — clear screen",
-)
-
-private val WHOAMI_LINES = listOf(
-    "OPERATOR_ID: NAUTILUS-7",
-    "CLEARANCE: TIER 3 — CARETAKER",
-    "STATION: CIC // ABYSSAL OBSERVATION POST",
-)
-
-private val NOTES_LINES = listOf(
-    "— field notes —",
-    "subj. responds to pings between 3-7s intervals.",
-    "avoids glare from main reflector. likes warm currents.",
-    "last molt produced 3.4g organic dust.",
-)
-
-private val LS_LINES = listOf("./bin/", "./log/", "./unit.dat", "./telemetry.dat", "./notes.txt")
-
 private fun out(vararg text: String): List<TerminalLine> =
     text.map { TerminalLine(TerminalLineKind.Out, it) }
 
@@ -84,11 +50,14 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
         action = Action.Clean,
     )
 
-    TerminalCommand.Sleep -> TerminalResponse(
-        // 응답 텍스트는 토글 전 상태 기준(데모와 동일).
-        out(if (state.asleep) "▸ unit awakened." else "▸ lights out. unit asleep."),
-        action = Action.Sleep,
-    )
+    // sleep/wake는 멱등 — 이미 원하는 상태면 no-op 메시지만, 아니면 토글 액션을 흘린다(PLAN.md:93).
+    TerminalCommand.Sleep ->
+        if (state.asleep) TerminalResponse(out("▸ already resting."))
+        else TerminalResponse(out("▸ lights out. unit asleep."), action = Action.Sleep)
+
+    TerminalCommand.Wake ->
+        if (!state.asleep) TerminalResponse(out("▸ already awake."))
+        else TerminalResponse(out("▸ unit awakened."), action = Action.Sleep)
 
     TerminalCommand.Train -> TerminalResponse(
         out("running drill protocol...", "▸ training +15%. discipline +5%."),

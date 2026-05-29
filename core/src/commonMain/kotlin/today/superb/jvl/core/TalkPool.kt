@@ -21,8 +21,5 @@ fun talkLine(state: GameState, rng: Rng): String = when {
     state.happiness < 0.3f -> "it has been a long shift. i miss you."
     state.energy < 0.3f -> "tired... maybe a quick rest?"
     state.stage == Stage.Egg -> "tap... tap... tap... [muffled]"
-    else -> {
-        val i = (rng.nextFloat() * IDLE_LINES.size).toInt().coerceIn(0, IDLE_LINES.lastIndex)
-        IDLE_LINES[i]
-    }
+    else -> IDLE_LINES[rng.nextInt(IDLE_LINES.size)]
 }

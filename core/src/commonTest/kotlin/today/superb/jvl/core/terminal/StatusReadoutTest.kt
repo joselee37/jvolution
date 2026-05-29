@@ -17,10 +17,11 @@ class StatusReadoutTest {
     }
 
     @Test
-    fun fed_is_inverse_of_hunger() {
-        // hunger 0.45 → fed 55% = "█" * round(0.55*12)=7 filled
-        val lines = renderStatus(state())
-        val fed = lines.first { it.trimStart().startsWith("fed") }
+    fun fed_is_inverse_of_hunger_with_exact_bar() {
+        // hunger 0.45 → fed 0.55 → filled = roundToInt(0.55*12) = 7, empty = 5.
+        // 정확한 글자 수를 단언해 roundToInt/BAR_WIDTH 회귀(toInt 등)를 잡는다.
+        val fed = renderStatus(state()).first { it.trimStart().startsWith("fed") }
+        assertTrue(fed.contains("███████░░░░░"), "expected 7 filled + 5 empty, got: $fed")
         assertTrue(fed.contains(" 55%"))
     }
 

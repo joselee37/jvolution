@@ -31,6 +31,12 @@ sealed interface Action {
     data object EvolveComplete : Action
 
     data class Rename(val name: String) : Action
+
+    /**
+     * 2차 멀티뷰용 선반영. **1차에서는 어떤 경로로도 dispatch되지 않는다** — 터미널의
+     * tree/radar/sonar는 [today.superb.jvl.core.terminal.TerminalCommand.ModulePending]으로
+     * 처리되어 view를 바꾸지 않는다. 1차에서 배선 금지(단일 화면이라 state.view↔렌더 desync 유발).
+     */
     data class SetView(val view: View) : Action
 
     /** 토스트 만료 — ViewModel 타이머가 1.4s 후 dispatch. */

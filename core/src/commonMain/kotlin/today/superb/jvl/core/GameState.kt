@@ -29,6 +29,11 @@ data class GameState(
     val evolveProgress: Float,
     val canEvolve: Boolean,
     val evolving: Boolean,
+    /**
+     * 데모 as-is 버그 보존: 어떤 reducer 분기도 이 값을 true로 켜지 않으므로 1차에서 항상 false다.
+     * 따라서 [Mood.SCOLDED]는 도달 불가. 2차에서 transient flash(toast/evolving처럼 ViewModel이
+     * 켜고 끔)로 재설계 예정. 그때까지 GameState에 남겨 데모 형상을 보존한다. [Mood] 참조.
+     */
     val disciplineFlash: Boolean,
     val pingNonce: Int,
     val log: List<LogEntry>,

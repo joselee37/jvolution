@@ -191,7 +191,7 @@ shared/src/commonMain/kotlin/today/superb/jvl/screens/EmptyScreenContent.kt
 
 `core/build.gradle.kts` — KMP 라이브러리 신규. 타깃: `androidLibrary(namespace = "today.superb.jvl.core")` + `iosArm64` + `iosSimulatorArm64` + **`jvm()`**. `jvm()`을 둬야 commonTest의 reducer 단위테스트가 host에서 `:core:jvmTest`로 빠르게 돈다(아래 Verification의 "JVM 단위테스트" 약속이 실제로 성립). 의존성은 `kotlin.stdlib`만(서드파티 제로).
 
-순수 도메인 경계(`:core`에 Compose/Ktor/Coil/Koin 금지)는 컨벤션만으로는 강제되지 않으므로, commonTest에 의존성 차단 검증(Konsist/ArchUnit류) 또는 최소한 `core/build.gradle.kts`에 대한 코드리뷰 체크포인트를 둔다. 워치 컴패니언(`:wear-watchos`)이 `:core`를 직접 framework로 소비할지 vs `:shared` 경유할지는 후속 결정 — 직접 소비하려면 `:core`에 `binaries.framework {}` 선언이 필요하다(1차 범위 밖).
+순수 도메인 경계(`:core`에 Compose/Ktor/Coil/Koin 금지)는 컨벤션만으로는 강제되지 않으므로, `jvmTest`의 `CorePurityTest`가 commonMain 소스를 스캔해 금지 import(`androidx.*`/`org.jetbrains.compose`/`io.ktor`/`coil`/`koin`)를 단정한다(외부 의존성 없이 JVM 파일 접근만 사용 — Konsist 불필요). 워치 컴패니언(`:wear-watchos`)이 `:core`를 직접 framework로 소비할지 vs `:shared` 경유할지는 후속 결정 — 직접 소비하려면 `:core`에 `binaries.framework {}` 선언이 필요하다(1차 범위 밖).
 
 `settings.gradle.kts`의 `include(":shared")` 줄 옆에 `include(":core")` 추가(라인 번호 대신 심볼 기준).
 
@@ -324,9 +324,11 @@ fun App() {
 **빌드:**
 
 ```sh
+./gradlew :core:jvmTest                         # commonTest+jvmTest(reducer·터미널·순수성 가드) — host에서 빠른 루프
+./gradlew :core:compileCommonMainKotlinMetadata # commonMain 플랫폼 누수 없음(전 타깃 컴파일 가능) 확인
+# iOS 타깃 실제 컴파일은 Kotlin/Native가 macOS를 요구 — Linux 불가. macOS/CI에서:
 ./gradlew :core:compileKotlinIosArm64 :core:compileKotlinIosSimulatorArm64
-./gradlew :core:jvmTest                         # commonTest의 reducer 단위 테스트(빠른 host 루프)
-./gradlew :core:allTests                        # 전 타깃 테스트
+./gradlew :core:allTests                        # 전 타깃 테스트(macOS에서 iOS 시뮬 포함)
 ./gradlew :androidApp:assembleDebug
 ./gradlew :shared:embedAndSignAppleFrameworkForXcode
 ```
