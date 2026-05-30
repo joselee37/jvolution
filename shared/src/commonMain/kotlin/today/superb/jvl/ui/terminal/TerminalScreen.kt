@@ -41,6 +41,7 @@ import today.superb.jvl.ui.theme.LocalPalette
 @Composable
 fun TerminalScreen(
     lines: List<TerminalLine>,
+    name: String,
     onSubmit: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -51,7 +52,8 @@ fun TerminalScreen(
     var cmdHistory by remember { mutableStateOf(listOf<String>()) }
     var cmdIdx by remember { mutableStateOf(-1) }
 
-    LaunchedEffect(lines.size) {
+    // lines 자체를 키로 — cap(200) 도달 후 size가 고정돼도 새 내용에 스크롤 따라가게.
+    LaunchedEffect(lines) {
         if (lines.isNotEmpty()) listState.animateScrollToItem(lines.lastIndex)
     }
 
@@ -90,9 +92,9 @@ fun TerminalScreen(
                 .fillMaxWidth()
                 .padding(top = 4.dp)
                 .onPreviewKeyEvent { event ->
+                    // Enter 제출은 KeyboardActions(onGo)가 단독 담당 — 여기선 ↑↓ 히스토리만.
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (event.key) {
-                        Key.Enter -> { submit(); true }
                         Key.DirectionUp -> {
                             if (cmdHistory.isNotEmpty()) {
                                 cmdIdx = (cmdIdx + 1).coerceAtMost(cmdHistory.lastIndex)
@@ -110,7 +112,7 @@ fun TerminalScreen(
                 },
             decorationBox = { inner ->
                 Column {
-                    MonoText("caretaker@nautilus:~$", color = palette.phosDim)
+                    MonoText("${name.lowercase()}@nautilus:~$", color = palette.phosDim)
                     inner()
                 }
             },

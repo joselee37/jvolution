@@ -24,6 +24,9 @@ private const val TOAST_MS = 1400L
 private const val EVOLVE_MS = 2200L
 private const val TERMINAL_CAP = 200
 
+/** 한 틱이 표현하는 최대 경과(초). 백그라운드/도즈 복귀 시 거대한 dt로 스탯이 붕괴하는 것을 방지. */
+private const val CARE_DT_MAX = 3f
+
 private val NAMES = listOf("NAUTI", "KAIJU", "BLEEP", "MORSE", "PROBE", "KRILL")
 
 /**
@@ -54,7 +57,7 @@ class GameViewModel(private val rng: Rng) : ViewModel() {
             while (true) {
                 delay(CARE_TICK_MS)
                 val now = TimeSource.Monotonic.markNow()
-                val dt = (now - last).inWholeMilliseconds / 1000f
+                val dt = ((now - last).inWholeMilliseconds / 1000f).coerceAtMost(CARE_DT_MAX)
                 last = now
                 dispatch(Action.Tick(dt))
             }
@@ -75,12 +78,15 @@ class GameViewModel(private val rng: Rng) : ViewModel() {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
 
-        val response = respond(parse(text), _state.value, rng)
+        // trimmed로 한 번만 parse — 에코와 실행이 같은 입력을 보게.
+        val response = respond(parse(trimmed), _state.value, rng)
         if (response.clearScreen) {
             _terminal.value = response.lines
             return
         }
-        val inLine = TerminalLine(TerminalLineKind.In, trimmed)
+        // 입력 에코에 유닛명 셸 프롬프트를 붙인다(데모 `name@nautilus:~$ cmd`).
+        val prompt = "${_state.value.name.lowercase()}@nautilus:~$"
+        val inLine = TerminalLine(TerminalLineKind.In, "$prompt $trimmed")
         _terminal.value = (_terminal.value + inLine + response.lines).takeLast(TERMINAL_CAP)
         response.action?.let { dispatch(it) }
     }

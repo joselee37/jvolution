@@ -23,9 +23,13 @@ import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.random.Random
 
-private const val COLS = 30
-private const val ROWS = 38
+// 정사각 그리드 — 등방(isotropic) 매핑이라 가로/세로 도트 간격이 동일하고 ghost 실루엣이 안 깨짐.
+private const val COLS = 34
+private const val ROWS = 34
 private const val TWO_PI = (2.0 * PI).toFloat()
+
+/** 도트 sparsity 고정 시드(데모는 빌드마다 Math.random — 우리는 프레임 안정 위해 결정적). */
+private const val GHOST_SEED = 20260530L
 
 // 데모 creature.jsx 상수 1:1.
 private const val PULSE_DURATION = 1.6f   // 빔이 한 번 가로지르는 시간(초)
@@ -34,16 +38,16 @@ private const val BEAM_HALFWIDTH = 0.05f  // u-space 선단 반폭
 private const val TRAIL_REACH = 0.45f     // u-space 잔상 길이
 private const val DECAY_TAU = 1.0f        // phosphor 감쇠 시상수(초)
 
-private class DotPoint(val u: Float, val v: Float, val sparsity: Float)
+private class DotPoint(val i: Int, val j: Int, val u: Float, val v: Float, val sparsity: Float)
 
 private fun buildGhostPoints(): List<DotPoint> {
-    val rng = Random(20260530)
+    val rng = Random(GHOST_SEED)
     val pts = ArrayList<DotPoint>(COLS * ROWS)
     for (j in 0 until ROWS) {
         for (i in 0 until COLS) {
             val u = ((i + 0.5f) / COLS) * 2f - 1f
             val v = ((j + 0.5f) / ROWS) * 2f - 1f
-            pts.add(DotPoint(u, v, rng.nextFloat()))
+            pts.add(DotPoint(i, j, u, v, rng.nextFloat()))
         }
     }
     return pts
@@ -90,6 +94,8 @@ fun DotCreatureCanvas(
                 pingStartMs = t
             }
             val pingActive = pingStartMs >= 0f && (t - pingStartMs) < PULSE_DURATION
+            // ping sweep 종료 시 리셋 — 자동 펄스와 상호배타로 만들어 빔 우선순위 플리커 방지.
+            if (pingStartMs >= 0f && (t - pingStartMs) >= PULSE_DURATION) pingStartMs = -1f
             val beamU: Float = when {
                 pingActive -> ((t - pingStartMs) / PULSE_DURATION) * 2f - 1f
                 else -> {
@@ -140,22 +146,24 @@ fun DotCreatureCanvas(
     }
 
     Canvas(modifier) {
+        // 재그리기는 renderT(snapshot state) 읽기로 구동된다 — brightness/litTime FloatArray는
+        // 성능상 의도적으로 snapshot 밖에 있으므로, 이 t 읽기를 제거하면 배열 변이가 안 그려진다.
         val t = renderT
         val cx = size.width / 2f
         val cy = size.height / 2f
-        val rx = size.width * 0.46f
-        val ry = size.height * 0.46f
-        val spacing = (2f / COLS) * rx
+        // 등방 스케일 — u·v를 같은 r로 매핑해야 density 함수의 등방 가정(sqrt(u²+v²))이 유지된다.
+        val r = minOf(size.width, size.height) * 0.46f
+        val spacing = (2f / COLS) * r
 
         for (idx in points.indices) {
             val b0 = brightness[idx]
             if (b0 < 0.02f) continue
             val p = points[idx]
-            val twinkle = 1f + sin(t * 2f + p.u * 5f + p.v * 7f) * 0.06f
+            val twinkle = 1f + sin(t * 2f + p.i * 0.7f + p.j * 1.3f) * 0.06f
             val b = (b0 * twinkle).coerceIn(0f, 1f)
             if (b < 0.02f) continue
 
-            val center = Offset(cx + p.u * rx, cy + p.v * ry)
+            val center = Offset(cx + p.u * r, cy + p.v * r)
             drawCircle(
                 color = lerpColor(palette.phosDim, palette.phos, b).copy(alpha = b),
                 radius = spacing * (0.30f + b * 0.34f),
@@ -172,8 +180,8 @@ fun DotCreatureCanvas(
 
         // 빔 — 넓은 halo + 밝은 선단.
         if (!scanU.isNaN()) {
-            val x = cx + scanU * rx
-            val haloW = rx * 0.34f
+            val x = cx + scanU * r
+            val haloW = r * 0.34f
             drawRect(
                 brush = Brush.horizontalGradient(
                     0f to palette.phos.copy(alpha = 0f),

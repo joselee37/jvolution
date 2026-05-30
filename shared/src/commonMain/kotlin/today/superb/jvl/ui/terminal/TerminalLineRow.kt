@@ -16,9 +16,6 @@ fun TerminalLineRow(line: TerminalLine, modifier: Modifier = Modifier) {
         TerminalLineKind.In -> palette.phos
         TerminalLineKind.Out -> palette.phosMid
     }
-    val prefix = when (line.kind) {
-        TerminalLineKind.In -> "> "
-        else -> ""
-    }
-    MonoText(text = prefix + line.text, modifier = modifier, color = color)
+    // In 라인은 ViewModel이 이미 `name@nautilus:~$ cmd` 형태로 프롬프트를 포함한다.
+    MonoText(text = line.text, modifier = modifier, color = color)
 }

@@ -82,13 +82,13 @@ class SeededRng(seed: Long) : Rng       // 테스트 결정성
 
 `GameViewModel` 책임에 **토스트 만료 코루틴 + evolve 스케줄러**를 명시한다. `Action`에 `ClearToast`를 추가한다.
 
-### 터미널 history는 GameState에 둔다
+### 터미널 history는 ViewModel-local, peer-event는 GameState nonce (구현 확정)
 
-출력 history(`out`/`sys`/`in` 라인)·peer-event 자동 에코를 **GameState에 둔다**. 사유: (1) 단일 GameState 철학과 일관, (2) 명세상 "어떤 화면을 보든 터미널에 이벤트가 기록"(`05:24-27`)되는 peer-echo가 reducer로 자연히 흐른다(`Action.PeerTick`이 history에 append), (3) commonTest에서 검증 가능. 따라서:
+출력 history(`out`/`sys`/`in` 라인)는 **ViewModel-local `MutableStateFlow<List<TerminalLine>>`**에 둔다(데모도 동일 — history는 컴포넌트 local, `screens.jsx:484-491`). history는 순수 프레젠테이션(스크롤·표시)이라 reducer 순수성·StateFlow 재구성 비용 측면에서 GameState 밖이 낫다. 2차 peer-echo는 데모처럼 **event를 GameState에 nonce로 두고**(`peerEventNonce`/`peerEventLatest`, `app.jsx:65-66`), 화면이 nonce 변화를 history에 append한다(`screens.jsx:499-509`).
 
-- `Action`에 `terminalInput`은 **두지 않는다**(데모에 없음). 대신 명령 파이프라인은: `GameViewModel.submitCommand(text)` → `TerminalParser.parse(text)` → `TerminalResponder.respond(cmd, state)`가 `{ lines: List<TerminalLine>, action: Action? }` 반환 → ViewModel이 `lines`를 history append 액션으로, `action`을 reduce로 흘린다.
-- `clear`는 `Action.ClearTerminal`. 입력 히스토리(`↑↓`)는 비도메인이므로 `TerminalScreen` local `remember`.
-- 데이터 플로 다이어그램에 `peerEventNonce → history`(또는 PeerTick→history)와 `respond → Action?` 경로를 반영한다.
+- `Action`에 `terminalInput`은 **두지 않는다**(데모에 없음). 명령 파이프라인: `GameViewModel.submitCommand(text)` → `parse(trimmed)` → `respond(cmd, state, rng)`가 `{ lines, action?, clearScreen }` 반환 → ViewModel이 입력 에코(`name@nautilus:~$ cmd`)+`lines`를 history에 append하고 `action`을 reduce로 흘린다.
+- `clear`는 `TerminalResponse.clearScreen`(ViewModel이 history 교체) — `Action`이 아니다. 입력 히스토리(`↑↓`)도 비도메인이라 `TerminalScreen` local `remember`.
+- 데이터 플로 다이어그램의 `peerEventNonce → history`·`respond → Action?` 경로는 위 구조 기준(2차에 peer nonce 활성화).
 
 명령어 `scold` → `Action.Discipline`으로 매핑한다(데모 `case 'discipline'`, `app.jsx:200`). `sleep`/`wake`는 토글(`asleep:!asleep`)이 아니라 `TerminalResponder`에서 현재 상태를 보고 멱등 처리한다.
 
@@ -118,7 +118,7 @@ UI 팔레트(이산 4종)와 생명체 alert 시 **부드러운 hue 보간**(`06
 ```mermaid
 flowchart LR
     subgraph core[":core (commonMain)"]
-        GS["GameState<br/>(care + terminal history)"]
+        GS["GameState<br/>(care; peer-event nonce는 2차)"]
         AC[sealed Action]
         RD[reduce - pure]
         TP[TerminalParser]
@@ -343,7 +343,7 @@ CI가 없으므로(저장소에 `.github/workflows/` 없음) 평가 doc 권고�
 4. 터미널에 `help` 입력 → 명령 목록 출력. `status` → 박스형 readout. `feed` → `NOM NOM` 토스트 + log 1줄.
 5. `↑`/`↓`로 명령 히스토리 탐색.
 6. `ping` → 도트 생명체에 즉시 스윕 1회 + `bond` 약간 증가.
-7. `sleep` → mood `ASLEEP` + 우상단 `zzz` 표시. `wake` → 복귀.
+7. `sleep` → mood `ASLEEP` + 생명체 밝기 디밍(`sleepFactor`) + `GOOD NIGHT` 토스트. `wake` → 복귀. (우상단 `zzz`·중앙 EVOLVING 오버레이는 후속 — 1차는 mood 라벨 + 밝기로 표현.)
 8. `radar` / `accept` / `tree` 등 미구현 명령 → `command not found` 또는 `module pending` 우아 응답(앱 크래시 없음). 1차에서 `tree`/`radar`는 **`SetView`를 dispatch하지 않고** responder가 "module pending"만 반환한다(단일 화면이라 `state.view`↔렌더 desync 방지). 진화(evolve)는 1차에서 구현하되 자동 트리거는 미검증 — 스테이지 라벨은 기본 `EGG` 고정으로 본다.
 9. iOS 시뮬레이터(Xcode)에서 같은 시나리오 동작 확인.
 
