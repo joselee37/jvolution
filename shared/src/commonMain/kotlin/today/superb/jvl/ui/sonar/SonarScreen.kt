@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import today.superb.jvl.core.GameState
 import today.superb.jvl.core.moodLabel
 import today.superb.jvl.ui.text.MonoText
+import today.superb.jvl.ui.theme.LocalDisplayFont
 import today.superb.jvl.ui.theme.LocalPalette
 
 /** 소나 화면 — 상단 readout + 도트 생명체 + 토스트 배너. */
@@ -29,8 +30,13 @@ fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            MonoText("${state.name} · ${state.stage.name.uppercase()}", fontWeight = FontWeight.Bold)
-            MonoText(moodLabel(state).name)
+            MonoText(
+                "${state.name} · ${state.stage.name.uppercase()}",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                fontFamily = LocalDisplayFont.current,
+            )
+            MonoText(moodLabel(state).name, fontSize = 18.sp, fontFamily = LocalDisplayFont.current)
         }
 
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -52,8 +58,9 @@ fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
                         text = toast,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         color = palette.phos,
-                        fontSize = 18.sp,
+                        fontSize = 22.sp,
                         textAlign = TextAlign.Center,
+                        fontFamily = LocalDisplayFont.current,
                     )
                 }
             }

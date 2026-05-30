@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.LocalPalette
+import today.superb.jvl.ui.theme.LocalTechFont
 
 /** 메인 화면을 감싸는 군용 베젤(1종) — 상단 라벨 + 테두리. */
 @Composable
@@ -22,7 +23,7 @@ fun MainBezel(label: String, content: @Composable () -> Unit) {
             .border(1.dp, palette.phosDim)
             .padding(6.dp),
     ) {
-        MonoText(label, color = palette.phosMid)
+        MonoText(label, color = palette.phosMid, fontFamily = LocalTechFont.current)
         Box(Modifier.fillMaxWidth().weight(1f)) { content() }
     }
 }

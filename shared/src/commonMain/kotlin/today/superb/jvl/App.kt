@@ -19,6 +19,7 @@ import today.superb.jvl.ui.terminal.TerminalScreen
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.Hue
 import today.superb.jvl.ui.theme.JvlTheme
+import today.superb.jvl.ui.theme.LocalTechFont
 import today.superb.jvl.viewmodel.GameViewModel
 
 @Composable
@@ -36,8 +37,8 @@ fun App() {
                         Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        MonoText("SONAR-OBS · MK.III")
-                        MonoText(moodLabel(state).name)
+                        MonoText("SONAR-OBS · MK.III", fontFamily = LocalTechFont.current)
+                        MonoText(moodLabel(state).name, fontFamily = LocalTechFont.current)
                     }
                 },
                 bezel = {
