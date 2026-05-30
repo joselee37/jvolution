@@ -80,9 +80,13 @@ fun DotCreatureCanvas(
     var renderT by remember { mutableStateOf(0f) }
     var scanU by remember { mutableStateOf(Float.NaN) }
 
+    // 항상 도는 프레임 루프(브레스/잔광/sweep). 매 프레임 전 도트 시뮬레이션을 돌리는 의도된 비용 —
+    // CRT가 "살아있게" 보이려면 정착 후에도 미세 애니메이션이 필요. withFrameNanos는 앱이 백그라운드/
+    // 화면 off면 호스트가 프레임을 안 주므로 자연히 멈춘다(올바른 primitive).
     LaunchedEffect(Unit) {
+        // 첫 withFrameNanos는 기준점만 잡고 버린다 — t는 다음 프레임부터 0+.
         val startNanos = withFrameNanos { it }
-        var handledNonce = curPingNonce
+        var handledNonce = curPingNonce  // 마운트 시점 nonce는 처리됨으로 — 부팅 직후 가짜 ping 방지.
         var pingStartMs = -1f
         while (true) {
             val nanos = withFrameNanos { it }
@@ -193,6 +197,19 @@ fun DotCreatureCanvas(
                 topLeft = Offset(x - haloW, 0f),
                 size = Size(haloW + 4f, size.height),
             )
+            // 타이트한 채도 높은 body(데모 creature.jsx의 중간층) — 선단↔halo 밝기 점프 완화.
+            val bodyW = haloW * 0.22f
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    0f to palette.phos.copy(alpha = 0f),
+                    1f to palette.phos.copy(alpha = 0.7f),
+                    startX = x - bodyW,
+                    endX = x + 3f,
+                ),
+                topLeft = Offset(x - bodyW, 0f),
+                size = Size(bodyW + 3f, size.height),
+            )
+            // 밝은 선단 스파이크.
             drawRect(
                 color = palette.phos.copy(alpha = 0.9f),
                 topLeft = Offset(x - 1.5f, 0f),

@@ -47,6 +47,28 @@ fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
             )
 
+            // 수면 표시 — 우상단 zzz(데모 `screens.jsx:213`).
+            if (state.asleep) {
+                MonoText(
+                    "z z Z",
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                    color = palette.phosDim,
+                    fontSize = 20.sp,
+                    fontFamily = LocalDisplayFont.current,
+                )
+            }
+
+            // 진화 오버레이 — 중앙(데모 `screens.jsx:222`).
+            if (state.evolving) {
+                MonoText(
+                    "◢◤ EVOLVING ◢◤",
+                    modifier = Modifier.align(Alignment.Center),
+                    color = palette.phos,
+                    fontSize = 22.sp,
+                    fontFamily = LocalDisplayFont.current,
+                )
+            }
+
             state.toast?.let { toast ->
                 Box(
                     Modifier

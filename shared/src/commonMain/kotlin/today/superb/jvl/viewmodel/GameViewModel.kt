@@ -38,7 +38,10 @@ private val NAMES = listOf("NAUTI", "KAIJU", "BLEEP", "MORSE", "PROBE", "KRILL")
  *
  * tick 루프·StateFlow 방출은 viewModelScope의 기본 Main.immediate에서(reduce는 순수·경량).
  */
-class GameViewModel(private val rng: Rng) : ViewModel() {
+class GameViewModel(
+    private val rng: Rng,
+    autoTick: Boolean = true,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(
         GameState.initial(name = NAMES[rng.nextInt(NAMES.size)], now = nowMillis()),
@@ -52,14 +55,17 @@ class GameViewModel(private val rng: Rng) : ViewModel() {
     private var evolveJob: Job? = null
 
     init {
-        viewModelScope.launch {
-            var last = TimeSource.Monotonic.markNow()
-            while (true) {
-                delay(CARE_TICK_MS)
-                val now = TimeSource.Monotonic.markNow()
-                val dt = ((now - last).inWholeMilliseconds / 1000f).coerceAtMost(CARE_DT_MAX)
-                last = now
-                dispatch(Action.Tick(dt))
+        // autoTick=false는 테스트용 — 무한 tick 루프를 끄고 dispatch/submitCommand만 검증.
+        if (autoTick) {
+            viewModelScope.launch {
+                var last = TimeSource.Monotonic.markNow()
+                while (true) {
+                    delay(CARE_TICK_MS)
+                    val now = TimeSource.Monotonic.markNow()
+                    val dt = ((now - last).inWholeMilliseconds / 1000f).coerceAtMost(CARE_DT_MAX)
+                    last = now
+                    dispatch(Action.Tick(dt))
+                }
             }
         }
     }

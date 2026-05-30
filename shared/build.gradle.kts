@@ -8,6 +8,10 @@ plugins {
 }
 
 kotlin {
+    // host JVM 타깃 — commonTest(GameViewModel 등)를 :shared:jvmTest로 빠르게 실행하기 위함.
+    // UI 렌더가 아닌 ViewModel/로직 단위테스트 전용(desktop 앱 진입점 없음).
+    jvm()
+
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -51,6 +55,10 @@ kotlin {
 
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
