@@ -8,10 +8,13 @@
 | `01-shader-off.png` | CRT shader OFF — Canvas 근사(밝은 녹색, 약한 비네트) |
 | `02-shader-on.png` | CRT shader ON — AGSL 셰이더 적용. **전체 감광 + 강한 비네트(코너 어둡게) + GPU 스캔라인** — CRT 튜브 느낌. 토글로 즉시 전환 |
 
-구현: `expect fun Modifier.crtShader(enabled, intensity, timeProvider)` (commonMain) +
+구현: `expect fun Modifier.crtShader(enabled, intensity, timeProvider)` (commonMain) + 공유 셰이더 소스
+`CRT_SHADER_SRC`(AGSL≡SkSL 동일 문법) +
 - **Android actual**: AGSL `RuntimeShader`(API 33+) → `RenderEffect.createRuntimeShaderEffect` →
   `graphicsLayer { renderEffect = … }`. 콘텐츠를 샘플해 스캔라인·비네트·플리커(uTime/uIntensity uniform).
-- **iOS/JVM actual**: no-op 폴백(Canvas 근사 유지 — SkSL actual은 후속).
+- **iOS actual**: SkSL `RuntimeEffect`(Skia) → `RuntimeShaderBuilder` → `ImageFilter.makeRuntimeShader` →
+  `asComposeRenderEffect()` → `graphicsLayer`. CMP 표준 SkSL 패턴(Skiko). **Kotlin/Native라 macOS에서만 컴파일·검증.**
+- **JVM actual**: no-op(테스트 호스트).
 
 `Tweaks.crtShader`(기본 false) → 설정 패널 "CRT shader (beta)" 토글. CrtLayers는 ON이면 셰이더 적용
 + Canvas 레이어 스킵, OFF면 Canvas 근사. 전용 에뮬레이터(API 35, swiftshader)에서 토글 ON 시
