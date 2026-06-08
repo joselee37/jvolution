@@ -109,8 +109,10 @@ class TerminalResponderTest {
     }
 
     @Test
-    fun module_pending_for_radar_family() {
-        assertTrue(reply("radar").lines.first().text.contains("module offline"))
+    fun module_pending_for_deferred_verbs() {
+        // 전투/계보/설정 동사는 아직 module pending(2차에서 radar/scan 등은 승격됨).
+        assertTrue(reply("tree").lines.first().text.contains("module offline"))
+        assertTrue(reply("challenge").lines.first().text.contains("module offline"))
     }
 
     @Test

@@ -55,10 +55,24 @@ class TerminalParserTest {
     }
 
     @Test
-    fun radar_family_is_module_pending() {
-        assertEquals(TerminalCommand.ModulePending("radar"), parse("radar"))
+    fun peer_verbs_parse_to_real_commands() {
+        // 2차에서 승격: scan/peers/radar → Scan, sonar/back → Sonar, bond/accept/decline/dnd.
+        assertEquals(TerminalCommand.Scan, parse("radar"))
+        assertEquals(TerminalCommand.Scan, parse("peers"))
+        assertEquals(TerminalCommand.Sonar, parse("back"))
+        assertEquals(TerminalCommand.Bond("hrrk"), parse("bond hrrk"))
+        assertEquals(TerminalCommand.Accept, parse("accept"))
+        assertEquals(TerminalCommand.Decline, parse("decline"))
+        assertEquals(TerminalCommand.Dnd("on"), parse("dnd on"))
+        assertEquals(TerminalCommand.Dnd(null), parse("dnd"))
+    }
+
+    @Test
+    fun deferred_verbs_still_module_pending() {
+        // 전투/계보/설정은 아직 후속 마일스톤.
         assertEquals(TerminalCommand.ModulePending("tree"), parse("tree"))
         assertEquals(TerminalCommand.ModulePending("challenge"), parse("challenge hrrk"))
+        assertEquals(TerminalCommand.ModulePending("reset"), parse("reset"))
     }
 
     @Test

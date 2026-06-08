@@ -2,7 +2,9 @@ package today.superb.jvl.core.terminal
 
 import today.superb.jvl.core.Action
 import today.superb.jvl.core.GameState
+import today.superb.jvl.core.RequestType
 import today.superb.jvl.core.Rng
+import today.superb.jvl.core.View
 import today.superb.jvl.core.talkLine
 
 private fun out(vararg text: String): List<TerminalLine> =
@@ -110,6 +112,69 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
     is TerminalCommand.Cat ->
         if (command.file == "notes.txt") TerminalResponse(out(NOTES_LINES))
         else TerminalResponse(out("cat: ${command.file ?: ""}: no such file"))
+
+    // ── 피어 / 레이더 (2차) — 데모 runCommand의 peer 분기 1:1 ──
+
+    TerminalCommand.Scan -> {
+        val onRadar = state.view == View.Radar
+        val tail = if (onRadar) "▸ sweep continuing on primary display."
+        else "▸ radar scope active. type `sonar` to return."
+        TerminalResponse(
+            out(renderScan(state.peers) + listOf("", tail)),
+            action = if (onRadar) null else Action.SetView(View.Radar),
+        )
+    }
+
+    TerminalCommand.Sonar ->
+        if (state.view == View.Sonar) TerminalResponse(out("▸ already on sonar."))
+        else TerminalResponse(out("▸ returning to sonar."), action = Action.SetView(View.Sonar))
+
+    is TerminalCommand.Bond -> {
+        val target = command.name
+        if (target.isNullOrBlank()) {
+            TerminalResponse(out("usage: bond <name>"))
+        } else {
+            val peer = findPeer(state.peers, target)
+            if (peer == null) TerminalResponse(out("no peer named $target."))
+            else TerminalResponse(out(renderBond(peer)))
+        }
+    }
+
+    TerminalCommand.Accept ->
+        if (state.pendingRequest == null) TerminalResponse(out("no incoming request."))
+        else TerminalResponse(emptyList(), action = Action.AcceptRequest) // 결과는 peer-event 에코로 출력
+
+    TerminalCommand.Decline ->
+        if (state.pendingRequest == null) TerminalResponse(out("no incoming request."))
+        else TerminalResponse(emptyList(), action = Action.DeclineRequest)
+
+    is TerminalCommand.Dnd -> {
+        val target: Boolean? = when (command.arg) {
+            null, "", "toggle" -> !state.dnd
+            "on", "1", "true" -> true
+            "off", "0", "false" -> false
+            else -> null
+        }
+        when {
+            target == null -> TerminalResponse(out("usage: dnd [on|off]"))
+            target == state.dnd -> TerminalResponse(out("▸ dnd already ${if (target) "on" else "off"}."))
+            else -> {
+                val req = state.pendingRequest
+                val extra = if (target && req != null && req.type == RequestType.Challenge) {
+                    val name = state.peers.find { it.id == req.from }?.name ?: "unknown"
+                    listOf("▸ pending challenge from $name declined.")
+                } else {
+                    emptyList()
+                }
+                val verb = if (target) "ON" else "OFF"
+                val effect = if (target) "blocked" else "allowed"
+                TerminalResponse(
+                    out(listOf("▸ dnd $verb — incoming challenges $effect.") + extra),
+                    action = Action.SetDnd(target),
+                )
+            }
+        }
+    }
 
     is TerminalCommand.ModulePending ->
         TerminalResponse(out("${command.verb}: module offline — coming in a later milestone."))

@@ -1,10 +1,12 @@
 package today.superb.jvl.core.terminal
 
-/** 후속 마일스톤(레이더·전투·계보) 명령 — 1차에서는 module pending 처리. */
+/**
+ * 후속 마일스톤 명령 — 아직 module pending. 2차(레이더)에서 scan/peers/radar/sonar/back/bond/
+ * accept/decline/dnd를 실제 핸들러로 승격. 남은 건 전투(challenge/flee/forfeit)·계보(tree/reset)·
+ * 설정(mute/sound).
+ */
 private val PENDING_VERBS = setOf(
-    "scan", "peers", "radar", "tree", "sonar", "back",
-    "bond", "challenge", "accept", "decline", "dnd",
-    "flee", "forfeit", "mute", "sound", "reset",
+    "tree", "challenge", "flee", "forfeit", "mute", "sound", "reset",
 )
 
 private const val NAME_MAX = 12
@@ -44,6 +46,12 @@ fun parse(input: String): TerminalCommand {
         "echo" -> TerminalCommand.Echo(args.joinToString(" "))
         "ls", "dir" -> TerminalCommand.Ls
         "cat" -> TerminalCommand.Cat(args.firstOrNull())
+        "scan", "peers", "radar" -> TerminalCommand.Scan
+        "sonar", "back" -> TerminalCommand.Sonar
+        "bond" -> TerminalCommand.Bond(args.firstOrNull())
+        "accept" -> TerminalCommand.Accept
+        "decline" -> TerminalCommand.Decline
+        "dnd" -> TerminalCommand.Dnd(args.firstOrNull())
         in PENDING_VERBS -> TerminalCommand.ModulePending(verb)
         else -> TerminalCommand.Unknown(verb)
     }

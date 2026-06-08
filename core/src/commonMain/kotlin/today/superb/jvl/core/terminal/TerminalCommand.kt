@@ -39,6 +39,26 @@ sealed interface TerminalCommand {
     data object Ls : TerminalCommand
     data class Cat(val file: String?) : TerminalCommand
 
+    // ── 피어 / 레이더 (2차 마일스톤) ──
+
+    /** `scan` / `peers` / `radar` — 레이더 화면 전환 + 근처 유닛 목록. */
+    data object Scan : TerminalCommand
+
+    /** `sonar` / `back` — 소나 화면 복귀. */
+    data object Sonar : TerminalCommand
+
+    /** `bond <name>` — 특정 피어 관계 조회. 인자 없으면 usage. */
+    data class Bond(val name: String?) : TerminalCommand
+
+    /** `accept` — 대기 도전 수락(2차는 Phase-1 스텁). */
+    data object Accept : TerminalCommand
+
+    /** `decline` — 대기 요청 거절. */
+    data object Decline : TerminalCommand
+
+    /** `dnd [on|off]` — 방해금지. 인자 없으면 토글. */
+    data class Dnd(val arg: String?) : TerminalCommand
+
     /** 알려진 명령이지만 후속 마일스톤(모듈 미탑재). */
     data class ModulePending(val verb: String) : TerminalCommand
 

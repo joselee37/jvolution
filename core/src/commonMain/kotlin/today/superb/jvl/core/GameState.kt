@@ -42,6 +42,17 @@ data class GameState(
     val view: View,
     /** 부화 시각(epoch millis). reducer 밖(ViewModel)에서 주입 — reducer는 wall-clock을 읽지 않는다. */
     val hatchedAt: Long,
+    // ── 피어 / 레이더 (2차 마일스톤) — 데모 initialState()의 peer 필드 1:1 ──
+    /** NPC 피어 로스터(고정 7유닛). [Action.PeerTick]이 위치·AI를 갱신. */
+    val peers: List<Peer>,
+    /** 처리 대기 중인 도전 요청. 한 번에 하나(single-request gate). 없으면 null. */
+    val pendingRequest: PeerRequest?,
+    /** 방해금지 — 들어오는 challenge 억제. 전투 중에는 강제 on으로 간주(3차). */
+    val dnd: Boolean,
+    /** 터미널이 자동 에코해야 할 피어 이벤트가 생길 때마다 증가하는 nonce. */
+    val peerEventNonce: Int,
+    /** 가장 최근 피어 이벤트의 내용. [peerEventNonce] 변화 시 TerminalScreen이 읽어 출력. */
+    val peerEventLatest: PeerEvent?,
 ) {
     companion object {
         const val LOG_CAP = 20
@@ -50,8 +61,10 @@ data class GameState(
          * 새 게임 초기 상태. 데모 `initialState()`의 기본 스탯과 동일.
          * @param name  생성 시점에 caller(ViewModel)가 RNG로 고른 이름.
          * @param now   부화 시각(epoch millis) — caller가 `nowMillis()`로 주입.
+         * @param peers 시작 피어 로스터. caller가 [PeerRoster.makePeers]로 만들어 주입(기본 빈 목록 —
+         *              피어를 쓰지 않는 케어/터미널 단위테스트는 생략 가능).
          */
-        fun initial(name: String, now: Long): GameState = GameState(
+        fun initial(name: String, now: Long, peers: List<Peer> = emptyList()): GameState = GameState(
             name = name,
             age = 0,
             cycles = 0,
@@ -76,6 +89,11 @@ data class GameState(
             sound = false,
             view = View.Sonar,
             hatchedAt = now,
+            peers = peers,
+            pendingRequest = null,
+            dnd = false,
+            peerEventNonce = 0,
+            peerEventLatest = null,
         )
     }
 }

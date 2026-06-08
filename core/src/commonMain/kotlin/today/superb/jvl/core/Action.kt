@@ -41,4 +41,24 @@ sealed interface Action {
 
     /** 토스트 만료 — ViewModel 타이머가 1.4s 후 dispatch. */
     data object ClearToast : Action
+
+    // ── 피어 / 레이더 (2차 마일스톤) ──
+
+    /** 피어 틱 — 위치 드리프트 + 근접 AI 판정. dt는 초 단위(ViewModel이 ~1s 주기로 dispatch). */
+    data class PeerTick(val dt: Float) : Action
+
+    /**
+     * 대기 중인 도전 수락 — 2차는 데모 Phase-1 스텁(유대 +0.04 + 이벤트 에코).
+     * 실제 전투 진입은 3차에서 이 분기를 `battleStart`로 교체.
+     */
+    data object AcceptRequest : Action
+
+    /** 대기 중인 요청 거절. */
+    data object DeclineRequest : Action
+
+    /**
+     * 방해금지 설정. 데모 `setDnd`는 단순 set이지만, 명세(05)의 "DND를 켤 때 대기 요청 자동 거절"
+     * 규칙을 순수 도메인으로 흡수해 이 reducer 분기가 처리한다(터미널 단일 액션 API 유지).
+     */
+    data class SetDnd(val on: Boolean) : Action
 }

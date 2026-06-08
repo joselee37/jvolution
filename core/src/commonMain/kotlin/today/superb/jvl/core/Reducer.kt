@@ -1,5 +1,8 @@
 package today.superb.jvl.core
 
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
 /** 스탯 드리프트 계수(초당). dt를 곱해 적용. 데모 `tick` 케이스 1:1. */
 private object Drift {
     const val ASLEEP_ENERGY = 0.02f
@@ -146,5 +149,137 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
         is Action.SetView -> state.copy(view = action.view)
 
         Action.ClearToast -> state.copy(toast = null)
+
+        // ── 피어 / 레이더 (2차) — 데모 peerTick/accept/decline/setDnd 1:1 ──
+
+        is Action.PeerTick -> {
+            val dt = action.dt
+            // single-request gate가 한 틱 안에서도 성립하도록 pendingRequest 등 누적값을 peer 반복에
+            // 걸쳐 갱신한다(데모는 .map 클로저 변수로 처리 — Kotlin map도 순차 실행이라 동형).
+            var pendingRequest = state.pendingRequest
+            var toast = state.toast
+            var peerEventNonce = state.peerEventNonce
+            var peerEventLatest = state.peerEventLatest
+            // 전투 중 강제 DND(3차): `|| state.battle != null` 추가 예정.
+            val dndActive = state.dnd
+
+            val peers = state.peers.map { p ->
+                var bearing = ((p.bearing + p.bearingVel * dt) % 360f + 360f) % 360f
+                var range = p.range + p.rangeVel * dt
+                var rangeVel = p.rangeVel
+                if (range <= 0.20f) { range = 0.20f; rangeVel = abs(rangeVel) }
+                if (range >= 0.92f) { range = 0.92f; rangeVel = -abs(rangeVel) }
+                var cooldown = maxOf(0f, p.cooldown - dt)
+                var bond = p.bond
+
+                // 발동 판정: 쿨다운 0 && 대기 요청 없음 && 6% 주사위(데모 short-circuit 순서 보존).
+                if (cooldown == 0f && pendingRequest == null && rng.nextFloat() < 0.06f) {
+                    val roll = rng.nextFloat()
+                    val wantsChallenge = roll < p.personality.challenge
+                    val wantsFriendly = !wantsChallenge && roll < p.personality.challenge + p.personality.friendly
+                    when {
+                        wantsChallenge && dndActive ->
+                            // DND/전투로 도전 억제 — 우호로 바꾸지 않고 짧은 쿨다운으로 재판정만.
+                            cooldown = 30f + rng.nextFloat() * 40f
+
+                        wantsChallenge -> {
+                            pendingRequest = PeerRequest(p.id, RequestType.Challenge)
+                            toast = "${p.name} CHALLENGES"
+                            peerEventNonce += 1
+                            peerEventLatest = PeerEvent(
+                                PeerEventKind.Challenge, p.id,
+                                listOf(
+                                    "",
+                                    "▸▸▸ INCOMING ▸▸▸",
+                                    "  ${p.name} (${p.species.name.lowercase()} · ${p.stage.name.lowercase()}) pings the channel.",
+                                    "  type `accept` to engage, `decline` to dismiss.",
+                                    "",
+                                ),
+                            )
+                            cooldown = 90f + rng.nextFloat() * 60f
+                        }
+
+                        wantsFriendly -> {
+                            bond = minOf(1f, bond + 0.05f)
+                            toast = "${p.name} APPROACHES"
+                            peerEventNonce += 1
+                            peerEventLatest = PeerEvent(
+                                PeerEventKind.Friendly, p.id,
+                                listOf("▸ ${p.name} drifts close. peer-bond +5% → ${(bond * 100).roundToInt()}%."),
+                            )
+                            cooldown = 60f + rng.nextFloat() * 40f
+                        }
+
+                        else -> cooldown = 30f + rng.nextFloat() * 40f
+                    }
+                }
+
+                p.copy(bearing = bearing, range = range, rangeVel = rangeVel, cooldown = cooldown, bond = bond)
+            }
+
+            state.copy(
+                peers = peers,
+                pendingRequest = pendingRequest,
+                toast = toast,
+                peerEventNonce = peerEventNonce,
+                peerEventLatest = peerEventLatest,
+            )
+        }
+
+        Action.AcceptRequest -> {
+            val req = state.pendingRequest
+            if (req == null) {
+                state
+            } else {
+                val name = state.peers.find { it.id == req.from }?.name ?: req.from
+                state.copy(
+                    pendingRequest = null,
+                    peerEventNonce = state.peerEventNonce + 1,
+                    peerEventLatest = PeerEvent(
+                        PeerEventKind.Accept, req.from,
+                        listOf(
+                            "▸ accepted $name's ${req.type.name.lowercase()}.",
+                            "  [BATTLE MODULE PENDING — coming in a later milestone]",
+                        ),
+                    ),
+                    peers = state.peers.map {
+                        if (it.id == req.from) it.copy(bond = minOf(1f, it.bond + 0.04f)) else it
+                    },
+                    toast = "ENGAGEMENT QUEUED",
+                )
+            }
+        }
+
+        Action.DeclineRequest -> {
+            val req = state.pendingRequest
+            if (req == null) {
+                state
+            } else {
+                val name = state.peers.find { it.id == req.from }?.name ?: req.from
+                state.copy(
+                    pendingRequest = null,
+                    peerEventNonce = state.peerEventNonce + 1,
+                    peerEventLatest = PeerEvent(PeerEventKind.Decline, req.from, listOf("▸ declined $name.")),
+                    toast = null,
+                )
+            }
+        }
+
+        is Action.SetDnd -> {
+            val req = state.pendingRequest
+            if (action.on && req != null) {
+                // 명세 05: DND를 켤 때 대기 도전이 있으면 자동 거절(도메인 규칙으로 흡수).
+                val name = state.peers.find { it.id == req.from }?.name ?: req.from
+                state.copy(
+                    dnd = true,
+                    pendingRequest = null,
+                    peerEventNonce = state.peerEventNonce + 1,
+                    peerEventLatest = PeerEvent(PeerEventKind.Decline, req.from, listOf("▸ declined $name.")),
+                    toast = "DND ON",
+                )
+            } else {
+                state.copy(dnd = action.on, toast = if (action.on) "DND ON" else "DND OFF")
+            }
+        }
     }
 }

@@ -8,13 +8,26 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import today.superb.jvl.core.Action
+import today.superb.jvl.core.GameState
+import today.superb.jvl.core.Peer
+import today.superb.jvl.core.PeerRequest
+import today.superb.jvl.core.Personality
+import today.superb.jvl.core.RequestType
 import today.superb.jvl.core.SeededRng
+import today.superb.jvl.core.Species
+import today.superb.jvl.core.Stage
+import today.superb.jvl.core.terminal.TerminalLineKind
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private fun readyPeer(id: String = "hrrk", name: String = "HRRK", cooldown: Float = 0f) =
+    Peer(id, name, Species.Squid, Stage.Adult, Personality.Aggressive, bearing = 0f, range = 0.5f, bearingVel = 12f, rangeVel = 0f, bond = 0f, battlesWon = 0, battlesLost = 0, cooldown = cooldown)
 
 /**
  * GameViewModel 단위 테스트 — autoTick=false로 무한 tick 루프를 끄고 명령 파이프라인/스케줄러만 검증.
@@ -85,4 +98,38 @@ class GameViewModelTest {
         assertTrue(vm.terminal.value.any { it.text.contains("command not found") })
         assertEquals(cyclesBefore, vm.state.value.cycles, "미지 명령은 상태 변화 없음")
     }
+
+    // ── 2차: 피어 / 레이더 ──────────────────────────────────────
+
+    @Test
+    fun peer_challenge_event_echoes_to_terminal_as_sys() = runTest(dispatcher) {
+        val seed = GameState.initial("NAUTI", 0L, listOf(readyPeer(cooldown = 0f)))
+        // initialState 제공 시 init에서 rng 미소비 → PeerTick이 [gate, roll, cooldown] 3개를 결정 소비.
+        val vm = GameViewModel(FixedRng(listOf(0f, 0f, 0f)), autoTick = false, initialState = seed)
+        vm.dispatch(Action.PeerTick(1f))
+        runCurrent()
+        assertNotNull(vm.state.value.pendingRequest)
+        assertTrue(vm.terminal.value.any { it.kind == TerminalLineKind.Sys && it.text.contains("INCOMING") })
+    }
+
+    @Test
+    fun decline_command_echoes_decline_line() = runTest(dispatcher) {
+        val seed = GameState.initial("NAUTI", 0L, listOf(readyPeer(cooldown = 100f)))
+            .copy(pendingRequest = PeerRequest("hrrk", RequestType.Challenge))
+        val vm = GameViewModel(SeededRng(42L), autoTick = false, initialState = seed)
+        vm.submitCommand("decline")
+        assertNull(vm.state.value.pendingRequest)
+        assertTrue(vm.terminal.value.any { it.text == "▸ declined HRRK." })
+    }
+
+    @Test
+    fun fresh_game_has_full_peer_roster() {
+        val vm = vm()
+        assertEquals(7, vm.state.value.peers.size)
+    }
+
+    // 주: 피어 틱 *루프*(autoTick 코루틴)는 단위 테스트하지 않는다 — runTest에서 무한 while(true)
+    // 루프는 정리 단계(advanceUntilIdle)가 끝나지 않아 행을 유발한다(기존 care 루프도 동일 이유로
+    // autoTick=false). PeerTick 로직은 reducer 테스트 + 위 dispatch(PeerTick) 에코 테스트가 커버하고,
+    // "1s마다 dispatch"는 검증된 care 루프와 동형이라 앱 실행으로 검증한다.
 }
