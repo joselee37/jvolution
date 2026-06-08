@@ -26,8 +26,9 @@ if [ ! -x "scripts/.venv/bin/python" ]; then
   exit 1
 fi
 
-# Play는 단조 증가 versionCode를 요구 — git 커밋 수로 도출.
-VERSION_CODE="${VERSION_CODE:-$(git rev-list --count HEAD)}"
+# Play는 단조 증가 versionCode를 요구 — 분 단위 타임스탬프(2020-01-01 기준)로 충돌 없이 증가.
+# (git 커밋 수는 수동/재시도 업로드와 어긋나 충돌할 수 있어 시간 기반으로 도출.)
+VERSION_CODE="${VERSION_CODE:-$(( ($(date +%s) - 1577836800) / 60 ))}"
 VERSION_NAME="${1:-${VERSION_NAME:-1.0}}"
 export KEYSTORE_PATH KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD VERSION_CODE VERSION_NAME
 
