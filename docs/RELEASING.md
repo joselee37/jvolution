@@ -17,9 +17,9 @@ Play 업로드는 AGP/Gradle 플러그인에 의존하지 않는 Play Developer 
 ./scripts/release.sh 1.0.1      # versionName 인자(생략 시 release.env의 VERSION_NAME)
 ```
 
-`versionCode`는 분 단위 타임스탬프(2020-01-01 기준)로 단조 증가 — 수동/재시도 업로드와
-충돌하지 않음. `versionName`은 인자(생략 시 release.env의 `VERSION_NAME`). 특정 코드로
-강제하려면 `VERSION_CODE=12345 ./scripts/release.sh 1.0.2`.
+`versionCode`는 `git rev-list --count HEAD`(git 커밋 수)로 단조 증가. `versionName`은 인자
+(생략 시 release.env의 `VERSION_NAME`). 특정 코드로 강제하려면 `VERSION_CODE=12345 ./scripts/release.sh 1.0.2`.
+주의: 히스토리 재작성(squash/rebase)으로 커밋 수가 줄면 versionCode가 역행할 수 있다.
 
 ## 일회성 설정
 
