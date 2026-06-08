@@ -67,6 +67,14 @@ sealed interface TerminalCommand {
     /** `flee` / `forfeit` — 진행 중인 전투 이탈. */
     data object Flee : TerminalCommand
 
+    // ── 계보 (4차 마일스톤) ──
+
+    /** `tree` — 계보 화면으로 전환. */
+    data object Tree : TerminalCommand
+
+    /** `reset` — 현재 개체 아카이브 + 새 알 시작(새 이름/타임스탬프는 ViewModel이 주입). */
+    data object Reset : TerminalCommand
+
     /** 알려진 명령이지만 후속 마일스톤(모듈 미탑재). */
     data class ModulePending(val verb: String) : TerminalCommand
 

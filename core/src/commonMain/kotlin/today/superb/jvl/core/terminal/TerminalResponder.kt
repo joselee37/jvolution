@@ -226,6 +226,27 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
         if (state.battle == null) TerminalResponse(out("no active engagement to flee from."))
         else TerminalResponse(out("▸ disengaging — pulse withdrawn."), action = Action.BattleFlee)
 
+    // ── 계보 (4차) ──
+
+    TerminalCommand.Tree -> {
+        val archived = state.lineage.size
+        TerminalResponse(
+            out(
+                "$ tree GENESIS/",
+                "▸ archive contains $archived retired ${if (archived == 1) "generation" else "generations"} + 1 active.",
+                "▸ lineage rendered on primary display.",
+                "  (type `sonar` to return)",
+            ),
+            action = Action.SetView(View.Tree),
+        )
+    }
+
+    // newName/now는 ViewModel이 NAMES 풀·nowMillis로 스탬프(reducer 순수성 유지) — 여기선 시그널.
+    TerminalCommand.Reset -> TerminalResponse(
+        out("◢◤ NEW EGG INCUBATING ◢◤"),
+        action = Action.Reset(newName = "", now = 0L),
+    )
+
     is TerminalCommand.ModulePending ->
         TerminalResponse(out("${command.verb}: module offline — coming in a later milestone."))
 

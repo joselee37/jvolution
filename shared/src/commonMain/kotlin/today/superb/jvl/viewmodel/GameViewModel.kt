@@ -153,7 +153,11 @@ class GameViewModel(
         val prompt = "${_state.value.name.lowercase()}@nautilus:~$"
         val inLine = TerminalLine(TerminalLineKind.In, "$prompt $trimmed")
         _terminal.value = (_terminal.value + inLine + response.lines).takeLast(TERMINAL_CAP)
-        response.action?.let { dispatch(it) }
+        response.action?.let { action ->
+            // reset은 wall-clock(archivedAt/hatchedAt) + 새 이름이 필요 — 여기서 스탬프(reducer는 순수).
+            val stamped = if (action is Action.Reset) action.copy(newName = NAMES[rng.nextInt(NAMES.size)], now = nowMillis()) else action
+            dispatch(stamped)
+        }
     }
 
     private fun scheduleToastClear() {

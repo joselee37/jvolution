@@ -20,6 +20,7 @@ import today.superb.jvl.ui.frame.DeviceFrame
 import today.superb.jvl.ui.radar.PeerAlertOverlay
 import today.superb.jvl.ui.radar.RadarScreen
 import today.superb.jvl.ui.sonar.SonarScreen
+import today.superb.jvl.ui.tree.TreeScreen
 import today.superb.jvl.ui.terminal.TerminalScreen
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.Hue
@@ -38,6 +39,7 @@ fun App() {
     val bezelLabel = when (state.view) {
         View.Radar -> "LRRS-RADAR · ${state.peers.size} CONTACTS"
         View.Battle -> "ENGAGEMENT · CH.07 · R.${(state.battle?.turn ?: 1).toString().padStart(2, '0')}"
+        View.Tree -> "LINEAGE-ARCHIVE · G${state.gen.toString().padStart(2, '0')}"
         else -> "SONAR-OBS · ${state.stage.name.uppercase()}"
     }
 
@@ -60,6 +62,7 @@ fun App() {
                             // 화면 전환: Sonar ↔ Radar ↔ Battle (tree는 후속).
                             when (state.view) {
                                 View.Radar -> RadarScreen(state)
+                                View.Tree -> TreeScreen(state)
                                 View.Battle -> BattleScreen(
                                     state = state,
                                     onSelectMove = { i ->

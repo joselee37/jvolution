@@ -432,5 +432,32 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
                 )
             }
         }
+
+        // ── 계보 (4차) — 데모 reset 1:1 ──
+
+        is Action.Reset -> {
+            val epitaph = LineageEntry(
+                gen = state.gen,
+                name = state.name,
+                stage = state.stage,
+                cycles = state.cycles,
+                happiness = (state.happiness * 100).roundToInt(),
+                energy = (state.energy * 100).roundToInt(),
+                bond = (state.bond * 100).roundToInt(),
+                discipline = (state.discipline * 100).roundToInt(),
+                training = (state.training * 100).roundToInt(),
+                hatchedAt = state.hatchedAt,
+                archivedAt = action.now,
+            )
+            // 새 알 — 스탯/단계 초기화. 피어/유대/전적·대기요청·뷰는 생명체와 독립이므로 보존.
+            GameState.initial(action.newName, action.now, state.peers).copy(
+                gen = state.gen + 1,
+                lineage = state.lineage + epitaph,
+                view = state.view,
+                pendingRequest = state.pendingRequest,
+                peerEventNonce = state.peerEventNonce,
+                peerEventLatest = state.peerEventLatest,
+            )
+        }
     }
 }

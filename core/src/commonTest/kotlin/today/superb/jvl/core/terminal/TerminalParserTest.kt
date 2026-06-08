@@ -69,17 +69,18 @@ class TerminalParserTest {
 
     @Test
     fun deferred_verbs_still_module_pending() {
-        // 계보(tree/reset)·설정(mute/sound)은 아직 후속 마일스톤.
-        assertEquals(TerminalCommand.ModulePending("tree"), parse("tree"))
-        assertEquals(TerminalCommand.ModulePending("reset"), parse("reset"))
+        // 설정(mute/sound)만 아직 후속 마일스톤.
         assertEquals(TerminalCommand.ModulePending("mute"), parse("mute"))
+        assertEquals(TerminalCommand.ModulePending("sound"), parse("sound"))
     }
 
     @Test
-    fun battle_verbs_parse_to_real_commands() {
+    fun battle_and_lineage_verbs_parse_to_real_commands() {
         assertEquals(TerminalCommand.Challenge("hrrk"), parse("challenge hrrk"))
         assertEquals(TerminalCommand.Flee, parse("flee"))
         assertEquals(TerminalCommand.Flee, parse("forfeit"))
+        assertEquals(TerminalCommand.Tree, parse("tree"))
+        assertEquals(TerminalCommand.Reset, parse("reset"))
     }
 
     @Test

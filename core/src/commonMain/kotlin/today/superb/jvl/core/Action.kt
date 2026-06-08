@@ -81,4 +81,13 @@ sealed interface Action {
 
     /** 전투 종료 — 보상/페널티 적용 후 소나 복귀. */
     data object BattleEnd : Action
+
+    // ── 계보 (4차 마일스톤) ──
+
+    /**
+     * 세대 리셋 — 현재 개체를 계보에 아카이브하고 새 알로 다시 시작.
+     * [newName]은 ViewModel이 NAMES 풀에서 RNG로 고르고, [now]는 nowMillis()를 찍어 넣는다
+     * (reducer는 wall-clock을 읽지 않음). 피어/유대/전적은 보존된다.
+     */
+    data class Reset(val newName: String, val now: Long) : Action
 }

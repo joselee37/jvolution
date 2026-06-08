@@ -110,9 +110,9 @@ class TerminalResponderTest {
 
     @Test
     fun module_pending_for_deferred_verbs() {
-        // 계보(tree/reset)·설정(mute/sound)만 아직 module pending(레이더·전투는 승격됨).
-        assertTrue(reply("tree").lines.first().text.contains("module offline"))
-        assertTrue(reply("reset").lines.first().text.contains("module offline"))
+        // 설정(mute/sound)만 아직 module pending(레이더·전투·계보는 승격됨).
+        assertTrue(reply("mute").lines.first().text.contains("module offline"))
+        assertTrue(reply("sound").lines.first().text.contains("module offline"))
     }
 
     @Test

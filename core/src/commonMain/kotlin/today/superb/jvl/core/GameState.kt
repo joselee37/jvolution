@@ -55,6 +55,8 @@ data class GameState(
     val peerEventLatest: PeerEvent?,
     /** 진행 중인 전투(3차 마일스톤). 전투 중에만 non-null. */
     val battle: today.superb.jvl.core.battle.BattleState?,
+    /** 은퇴한 이전 세대 비석(4차 마일스톤). [Action.Reset]이 현재 개체를 여기에 아카이브. */
+    val lineage: List<LineageEntry>,
 ) {
     companion object {
         const val LOG_CAP = 20
@@ -97,6 +99,7 @@ data class GameState(
             peerEventNonce = 0,
             peerEventLatest = null,
             battle = null,
+            lineage = emptyList(),
         )
     }
 }
