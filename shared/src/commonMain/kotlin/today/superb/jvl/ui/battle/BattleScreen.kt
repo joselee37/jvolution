@@ -1,20 +1,27 @@
 package today.superb.jvl.ui.battle
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,20 +64,46 @@ fun BattleScreen(state: GameState, onSelectMove: (Int) -> Unit, modifier: Modifi
             HpBar(peer.name, battle.hpThem, battle.hpMaxThem, Alignment.End, Modifier.weight(1f))
         }
 
-        // ── 아레나(양측 생명체) + 페이즈 오버레이 ──
-        Box(Modifier.fillMaxWidth().weight(1f)) {
-            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
-                    DotCreatureCanvas(
-                        pingNonce = 0, happiness = state.happiness, asleep = false, modifier = Modifier.fillMaxSize(),
-                        species = LocalTweaks.current.species, energy = (battle.hpMe / battle.hpMaxMe).coerceAtLeast(0.15f),
-                    )
+        // ── 아레나(측면 스크롤 + 카메라 팬) + 클래시 오버레이 ──
+        Box(Modifier.fillMaxWidth().weight(1f).clipToBounds()) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val vpW = maxWidth
+                val arenaW = vpW * 1.8f
+                val meAnchor = arenaW * 0.22f
+                val themAnchor = arenaW * 0.78f
+                val focusMe = vpW * 0.5f - meAnchor
+                val focusThem = vpW * 0.5f - themAnchor
+                val focusCenter = (vpW - arenaW) * 0.5f
+                // damage 단계: 피격 측으로 팬(둘 다/없음이면 중앙).
+                val defenderFocus = when {
+                    battle.lastDmgMe > 0f && battle.lastDmgThem <= 0f -> focusMe
+                    battle.lastDmgThem > 0f && battle.lastDmgMe <= 0f -> focusThem
+                    else -> focusCenter
                 }
-                Box(Modifier.weight(1f)) {
-                    DotCreatureCanvas(
-                        pingNonce = 0, happiness = peer.bond, asleep = false, modifier = Modifier.fillMaxSize(),
-                        species = peer.species, energy = (battle.hpThem / battle.hpMaxThem).coerceAtLeast(0.15f),
-                    )
+                val target = when (battle.phase) {
+                    BattlePhase.Choose, BattlePhase.MyCast -> focusMe
+                    BattlePhase.TheirCast -> focusThem
+                    BattlePhase.Reveal -> focusCenter
+                    BattlePhase.Damage -> defenderFocus
+                    BattlePhase.End -> focusCenter
+                }
+                val camX by animateDpAsState(target, label = "battle-cam")
+                val creatureSize = minOf(maxHeight, 150.dp)
+
+                Box(Modifier.width(arenaW).fillMaxHeight().offset(x = camX)) {
+                    Box(Modifier.size(creatureSize).align(Alignment.CenterStart).offset(x = meAnchor - creatureSize * 0.5f)) {
+                        DotCreatureCanvas(
+                            pingNonce = 0, happiness = state.happiness, asleep = false, modifier = Modifier.fillMaxSize(),
+                            species = LocalTweaks.current.species, energy = (battle.hpMe / battle.hpMaxMe).coerceAtLeast(0.15f),
+                        )
+                    }
+                    Box(Modifier.size(creatureSize).align(Alignment.CenterStart).offset(x = themAnchor - creatureSize * 0.5f)) {
+                        DotCreatureCanvas(
+                            pingNonce = 0, happiness = peer.bond, asleep = false, modifier = Modifier.fillMaxSize(),
+                            species = peer.species, energy = (battle.hpThem / battle.hpMaxThem).coerceAtLeast(0.15f),
+                        )
+                    }
+                    BattleClash(battle, Modifier.matchParentSize())
                 }
             }
             PhaseOverlay(battle, state.name, peer.name, Modifier.align(Alignment.Center))
