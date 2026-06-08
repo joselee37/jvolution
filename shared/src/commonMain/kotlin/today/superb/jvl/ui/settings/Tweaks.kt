@@ -18,6 +18,8 @@ data class Tweaks(
     val crtIntensity: Float = 0.7f,   // [0, 1.4]
     val scanlines: Boolean = true,
     val noise: Boolean = true,
+    /** 실 CRT 셰이더(AGSL/SkSL) on/off. 기본 off → 기존 Compose-Canvas 근사. 테스터 비교용 토글. */
+    val crtShader: Boolean = false,
     val species: Species = Species.Ghost,
     val pulsePeriod: Float = 5f,      // [2, 12] s
     val phosphorDecay: Float = 1f,    // [0.3, 4] s

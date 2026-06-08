@@ -2,6 +2,7 @@ package today.superb.jvl.ui.crt
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,6 +35,7 @@ fun CrtLayers(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val palette = LocalPalette.current
     val tweaks = LocalTweaks.current
     val intensity = tweaks.crtIntensity
+    val shaderOn = tweaks.crtShader
     var timeMs by remember { mutableStateOf(0f) }
 
     LaunchedEffect(Unit) {
@@ -44,8 +46,13 @@ fun CrtLayers(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     }
 
     Box(modifier) {
-        content()
-        Canvas(Modifier.matchParentSize()) {
+        // 셰이더 on이면 실 CRT 셰이더가 콘텐츠를 처리(아래 Canvas 근사는 스킵), off면 no-op + Canvas.
+        // fillMaxSize로 크기를 확립해야 함(matchParentSize만 있는 형제뿐이면 Box가 0으로 붕괴).
+        Box(Modifier.fillMaxSize().crtShader(shaderOn, intensity) { timeMs }) {
+            content()
+        }
+        if (!shaderOn) {
+            Canvas(Modifier.matchParentSize()) {
             val w = size.width
             val h = size.height
 
@@ -96,6 +103,7 @@ fun CrtLayers(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
             val flicker = 0.5f + 0.5f * sin(timeMs / FLICKER_PERIOD * TWO_PI)
             val noiseVeil = if (tweaks.noise) 0.05f * intensity * flicker else 0f
             drawRect(color = Color.Black.copy(alpha = (0.015f + 0.025f * flicker) * intensity + noiseVeil), size = size)
+            }
         }
     }
 }

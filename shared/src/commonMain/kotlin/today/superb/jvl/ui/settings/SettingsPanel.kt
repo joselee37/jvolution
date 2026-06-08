@@ -63,6 +63,7 @@ fun SettingsPanel(
             sliderRow("CRT intensity", tweaks.crtIntensity, 0f..1.4f) { onTweaks(tweaks.copy(crtIntensity = it)) }
             toggleRow("Scanlines", tweaks.scanlines) { onTweaks(tweaks.copy(scanlines = it)) }
             toggleRow("Noise / static", tweaks.noise) { onTweaks(tweaks.copy(noise = it)) }
+            toggleRow("CRT shader (beta)", tweaks.crtShader) { onTweaks(tweaks.copy(crtShader = it)) }
 
             section("CREATURE")
             chipRow("Species", Species.entries, tweaks.species, { it.name.lowercase() }) { onTweaks(tweaks.copy(species = it)) }
