@@ -1,6 +1,9 @@
 package today.superb.jvl.core
 
+import kotlinx.serialization.Serializable
+
 /** 터미널/소나 로그 한 줄. newest-first로 누적, 최대 [LOG_CAP]줄. */
+@Serializable
 data class LogEntry(val cycle: Int, val msg: String)
 
 /**
@@ -11,6 +14,7 @@ data class LogEntry(val cycle: Int, val msg: String)
  *
  * 스탯은 모두 [0, 1] 범위(reducer가 [clamp]). hunger 0=배부름·1=굶주림, dirty 0=청결·1=더러움.
  */
+@Serializable
 data class GameState(
     val name: String,
     val age: Int,

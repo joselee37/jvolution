@@ -3,6 +3,7 @@ package today.superb.jvl.ui.settings
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
+import kotlinx.serialization.Serializable
 import today.superb.jvl.core.Species
 import today.superb.jvl.ui.theme.Hue
 
@@ -13,6 +14,7 @@ import today.superb.jvl.ui.theme.Hue
  * GameViewModel이 `MutableStateFlow<Tweaks>`로 보유하고 [LocalTweaks]로 트리에 내려보낸다.
  */
 @Immutable
+@Serializable
 data class Tweaks(
     val theme: Hue = Hue.Green,
     val crtIntensity: Float = 0.7f,   // [0, 1.4]

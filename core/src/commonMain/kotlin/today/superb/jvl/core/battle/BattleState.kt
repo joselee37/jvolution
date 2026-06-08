@@ -1,12 +1,17 @@
 package today.superb.jvl.core.battle
 
+import kotlinx.serialization.Serializable
+
 /** 전투 진행 단계. 데모 `phase: 'choose'|'myCast'|'theirCast'|'reveal'|'damage'|'end'` 1:1. */
+@Serializable
 enum class BattlePhase { Choose, MyCast, TheirCast, Reveal, Damage, End }
 
 /** 전투 결과. 데모 `result: 'win'|'lose'|'draw'|'flee'` 1:1. */
+@Serializable
 enum class BattleResult { Win, Lose, Draw, Flee }
 
 /** 전투 로그 한 줄(newest-first, 최대 [BattleState.LOG_CAP]). 데모 battle.log 항목 1:1. */
+@Serializable
 data class BattleLogEntry(
     val tag: String,
     val line: String,
@@ -21,6 +26,7 @@ data class BattleLogEntry(
  * HP는 Float(데미지가 소수) — 표시에는 ceil. transient 페이즈 전이(myCast→…→end)는 reducer가
  * 켜고 ViewModel 스케줄러가 타이머로 진행시킨다(toast/evolve와 동일 패턴).
  */
+@Serializable
 data class BattleState(
     val peerId: String,
     val hpMe: Float,

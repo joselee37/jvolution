@@ -1,11 +1,15 @@
 package today.superb.jvl.core
 
+import kotlinx.serialization.Serializable
+
 /**
  * 피어 성격 — 근접 AI 이벤트에서 challenge/friendly 분기를 고를 확률을 결정한다.
  * 데모 `PERSONALITIES` 1:1. `idle` 확률은 명시값이 아니라 나머지 질량(1 - challenge - friendly).
  *
  * 전투 행동 분포에도 재사용된다([04](demo/docs/04-battle.md)) — 3차 마일스톤.
+ * 직렬화는 entry NAME 기준(생성자 파라미터 challenge/friendly는 저장 안 됨).
  */
+@Serializable
 enum class Personality(val challenge: Float, val friendly: Float) {
     Aggressive(challenge = 0.65f, friendly = 0.10f),
     Gentle(challenge = 0.08f, friendly = 0.55f),
@@ -25,6 +29,7 @@ enum class Personality(val challenge: Float, val friendly: Float) {
  * @property rangeVel  거리 드리프트 속도(/초). 경계에서 부호 반전.
  * @property cooldown  다음 AI 발동까지 침묵 시간(초). peer tick마다 dt만큼 감소, 0에서 멈춤.
  */
+@Serializable
 data class Peer(
     val id: String,
     val name: String,

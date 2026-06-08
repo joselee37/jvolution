@@ -1,6 +1,9 @@
 package today.superb.jvl.core
 
+import kotlinx.serialization.Serializable
+
 /** 생명체 성장 단계. 선언 순서가 곧 진화 순서(ordinal). 데모 `STAGES` 1:1. */
+@Serializable
 enum class Stage { Egg, Larva, Juvenile, Adult }
 
 /** 다음 단계. 마지막(Adult)이면 자기 자신. */

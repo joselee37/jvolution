@@ -7,6 +7,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import today.superb.jvl.core.Action
 import today.superb.jvl.core.GameState
@@ -22,6 +26,8 @@ import today.superb.jvl.core.terminal.TerminalLineKind
 import today.superb.jvl.core.terminal.parse
 import today.superb.jvl.core.terminal.respond
 import today.superb.jvl.nowMillis
+import today.superb.jvl.persistence.GameStore
+import today.superb.jvl.persistence.SaveCodec
 import kotlin.time.TimeSource
 
 private const val CARE_TICK_MS = 1500L
@@ -32,6 +38,9 @@ private const val TERMINAL_CAP = 200
 /** 피어 틱 주기/스텝. 데모처럼 고정 dt — 드리프트는 cosmetic이라 monotonic 보정 불필요. */
 private const val PEER_TICK_MS = 1000L
 private const val PEER_TICK_DT = 1f
+
+/** 저장 디바운스 — 연속 변화(틱/케어)를 모아 한 번씩만 기록. */
+private const val SAVE_DEBOUNCE_MS = 1000L
 
 /** 한 틱이 표현하는 최대 경과(초). 백그라운드/도즈 복귀 시 거대한 dt로 스탯이 붕괴하는 것을 방지. */
 private const val CARE_DT_MAX = 3f
@@ -51,9 +60,12 @@ class GameViewModel(
     private val rng: Rng,
     autoTick: Boolean = true,
     initialState: GameState? = null,
+    initialTweaks: Tweaks? = null,
+    private val store: GameStore? = null,
+    private val codec: SaveCodec? = null,
 ) : ViewModel() {
 
-    // initialState는 테스트 시드 + (후속) 영속화 복원용 seam. null이면 새 게임을 생성한다.
+    // initialState/initialTweaks는 영속화 복원(Koin 팩토리가 load) + 테스트 시드 seam. null이면 새 게임.
     private val _state = MutableStateFlow(
         initialState ?: GameState.initial(
             name = NAMES[rng.nextInt(NAMES.size)],
@@ -67,7 +79,7 @@ class GameViewModel(
     val terminal: StateFlow<List<TerminalLine>> = _terminal.asStateFlow()
 
     // 실시간 디스플레이 설정(:shared UI-state, PLAN.md). 설정 패널이 갱신.
-    private val _tweaks = MutableStateFlow(Tweaks())
+    private val _tweaks = MutableStateFlow(initialTweaks ?: Tweaks())
     val tweaks: StateFlow<Tweaks> = _tweaks.asStateFlow()
 
     private var toastJob: Job? = null
@@ -96,6 +108,26 @@ class GameViewModel(
                 }
             }
         }
+
+        // 영속화 save — store/codec 주입 시에만(autoTick 무관). transient를 제거한 스냅샷을 디바운스 +
+        // distinctUntilChanged로 모아 저장하므로 토스트/틱 같은 순수 변화는 디스크에 쓰지 않는다.
+        if (store != null && codec != null) {
+            viewModelScope.launch {
+                combine(_state, _tweaks) { s, t -> s to t }
+                    // 내구 변화에만 발화(피어 cosmetic 드리프트는 dedupKey가 무시 → 디바운스 starvation 방지).
+                    .distinctUntilChanged { a, b -> codec.dedupKey(a.first, a.second) == codec.dedupKey(b.first, b.second) }
+                    .debounce(SAVE_DEBOUNCE_MS)
+                    .collectLatest { (s, t) -> store.save(codec.encode(s, t)) }
+            }
+        }
+    }
+
+    /** ViewModel 소멸 시 디바운스를 건너뛰고 마지막 상태를 즉시 저장(소멸 직전 ~1s 변화 손실 방지). */
+    override fun onCleared() {
+        super.onCleared()
+        val c = codec ?: return
+        val s = store ?: return
+        s.save(c.encode(_state.value, _tweaks.value))
     }
 
     fun dispatch(action: Action) {
