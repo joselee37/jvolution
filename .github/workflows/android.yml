@@ -1,0 +1,34 @@
+name: CI (tests)
+
+# 빠른 PR 게이트 — host 단위테스트만(느린 Android 빌드/릴리스는 로컬 scripts/release.sh).
+# GitHub를 전혀 안 쓸 거면 이 파일을 삭제해도 됨.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Host unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run :core + :shared jvmTest
+        run: ./gradlew :core:jvmTest :shared:jvmTest
