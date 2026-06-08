@@ -1,4 +1,7 @@
-name: Android CI
+name: CI (tests)
+
+# 빠른 PR 게이트 — host 단위테스트만(느린 Android 빌드/릴리스는 로컬 scripts/release.sh).
+# GitHub를 전혀 안 쓸 거면 이 파일을 삭제해도 됨.
 
 on:
   push:
@@ -8,12 +11,12 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: android-ci-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Test + Debug APK
+  test:
+    name: Host unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,21 +27,8 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Host unit tests (:core + :shared)
+      - name: Run :core + :shared jvmTest
         run: ./gradlew :core:jvmTest :shared:jvmTest
-
-      - name: Build debug APK
-        run: ./gradlew :androidApp:assembleDebug
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: jvolution-debug-apk
-          path: androidApp/build/outputs/apk/debug/androidApp-debug.apk
-          if-no-files-found: error

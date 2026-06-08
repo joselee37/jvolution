@@ -29,3 +29,9 @@ keystore.properties
 # Logs & profiling dumps
 *.log
 *.hprof
+
+# Local release tooling (secrets / venv — never commit)
+scripts/.venv/
+scripts/release.env
+scripts/play-service-account.json
+*.aab
