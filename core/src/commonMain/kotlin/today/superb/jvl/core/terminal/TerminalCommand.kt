@@ -75,8 +75,8 @@ sealed interface TerminalCommand {
     /** `reset` — 현재 개체 아카이브 + 새 알 시작(새 이름/타임스탬프는 ViewModel이 주입). */
     data object Reset : TerminalCommand
 
-    /** 알려진 명령이지만 후속 마일스톤(모듈 미탑재). */
-    data class ModulePending(val verb: String) : TerminalCommand
+    /** `mute` / `sound` — 오디오 토글(6차 — 마지막 명령으로 전체 패리티 달성). */
+    data object Sound : TerminalCommand
 
     /** 빈 입력 — 무시. */
     data object Empty : TerminalCommand

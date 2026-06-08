@@ -11,9 +11,8 @@ import today.superb.jvl.core.talkLine
 /** 전투 중 허용되는 명령(데모 BATTLE_ALLOWED). 그 외는 "locked"로 거부. */
 private fun allowedInBattle(command: TerminalCommand): Boolean = when (command) {
     TerminalCommand.Help, TerminalCommand.WhoAmI, TerminalCommand.Clear,
-    TerminalCommand.Flee, TerminalCommand.Empty -> true
+    TerminalCommand.Flee, TerminalCommand.Sound, TerminalCommand.Empty -> true
     is TerminalCommand.Echo, is TerminalCommand.Dnd -> true
-    is TerminalCommand.ModulePending -> command.verb == "mute" || command.verb == "sound"
     else -> false
 }
 
@@ -247,8 +246,12 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
         action = Action.Reset(newName = "", now = 0L),
     )
 
-    is TerminalCommand.ModulePending ->
-        TerminalResponse(out("${command.verb}: module offline — coming in a later milestone."))
+    // ── 오디오 (6차) ──
+
+    TerminalCommand.Sound -> TerminalResponse(
+        out(if (state.sound) "▸ audio muted." else "▸ audio enabled."),
+        action = Action.ToggleSound,
+    )
 
     is TerminalCommand.Unknown ->
         TerminalResponse(out("${command.verb}: command not found. try `help`."))

@@ -109,10 +109,11 @@ class TerminalResponderTest {
     }
 
     @Test
-    fun module_pending_for_deferred_verbs() {
-        // 설정(mute/sound)만 아직 module pending(레이더·전투·계보는 승격됨).
-        assertTrue(reply("mute").lines.first().text.contains("module offline"))
-        assertTrue(reply("sound").lines.first().text.contains("module offline"))
+    fun sound_toggles_audio() {
+        // 6차 — 전체 패리티(ModulePending 없음). mute/sound는 오디오 토글.
+        assertEquals(Action.ToggleSound, reply("mute").action)
+        assertTrue(reply("mute", state().copy(sound = false)).lines.first().text == "▸ audio enabled.")
+        assertTrue(reply("sound", state().copy(sound = true)).lines.first().text == "▸ audio muted.")
     }
 
     @Test
@@ -153,7 +154,7 @@ class TerminalResponderTest {
         for (verb in verbs) {
             val cmd = parse(verb)
             assertTrue(
-                cmd !is TerminalCommand.Unknown && cmd !is TerminalCommand.ModulePending,
+                cmd !is TerminalCommand.Unknown,
                 "help가 '$verb'를 안내하지만 parser 결과가 $cmd",
             )
         }

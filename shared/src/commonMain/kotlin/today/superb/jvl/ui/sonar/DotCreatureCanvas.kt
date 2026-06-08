@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import today.superb.jvl.core.Species
+import today.superb.jvl.ui.settings.LocalTweaks
 import today.superb.jvl.ui.sonar.species.densityFor
 import today.superb.jvl.ui.theme.LocalPalette
 import kotlin.math.PI
@@ -34,10 +35,9 @@ private const val GHOST_SEED = 20260530L
 
 // 데모 creature.jsx 상수 1:1.
 private const val PULSE_DURATION = 1.6f   // 빔이 한 번 가로지르는 시간(초)
-private const val PULSE_INTERVAL = 5f     // 자동 펄스 주기(초)
 private const val BEAM_HALFWIDTH = 0.05f  // u-space 선단 반폭
 private const val TRAIL_REACH = 0.45f     // u-space 잔상 길이
-private const val DECAY_TAU = 1.0f        // phosphor 감쇠 시상수(초)
+// 자동 펄스 주기·phosphor 감쇠는 Tweaks(pulsePeriod/phosphorDecay)에서 읽는다.
 
 private class DotPoint(val i: Int, val j: Int, val u: Float, val v: Float, val sparsity: Float)
 
@@ -75,11 +75,14 @@ fun DotCreatureCanvas(
     val brightness = remember { FloatArray(points.size) }
     val litTime = remember { FloatArray(points.size) { -10f } }
 
+    val tweaks = LocalTweaks.current
     val curHappiness by rememberUpdatedState(happiness)
     val curAsleep by rememberUpdatedState(asleep)
     val curPingNonce by rememberUpdatedState(pingNonce)
     val curSpecies by rememberUpdatedState(species)
     val curEnergy by rememberUpdatedState(energy)
+    val curPulse by rememberUpdatedState(tweaks.pulsePeriod)
+    val curDecay by rememberUpdatedState(tweaks.phosphorDecay)
 
     // 매 프레임 갱신되어 Canvas 재그리기를 유발하는 시간/빔 상태.
     var renderT by remember { mutableStateOf(0f) }
@@ -108,7 +111,7 @@ fun DotCreatureCanvas(
             val beamU: Float = when {
                 pingActive -> ((t - pingStartMs) / PULSE_DURATION) * 2f - 1f
                 else -> {
-                    val phase = (t % PULSE_INTERVAL) / PULSE_DURATION
+                    val phase = (t % curPulse) / PULSE_DURATION
                     if (phase < 1f) phase * 2f - 1f else Float.NaN
                 }
             }
@@ -144,7 +147,7 @@ fun DotCreatureCanvas(
                         beamBoost = maxOf(0f, 0.5f + d / TRAIL_REACH * 0.5f)
                     }
                 }
-                val trail = exp(-(t - litTime[idx]) / DECAY_TAU)
+                val trail = exp(-(t - litTime[idx]) / curDecay)
                 val target = if (present) minOf(1f, maxOf(trail, beamBoost) * sleepFactor) else 0f
                 brightness[idx] += (target - brightness[idx]) * 0.4f
             }

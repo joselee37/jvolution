@@ -1,10 +1,5 @@
 package today.superb.jvl.core.terminal
 
-/** 후속 마일스톤 명령 — 아직 module pending. 설정(mute/sound)만 남음(5차/6차). */
-private val PENDING_VERBS = setOf(
-    "mute", "sound",
-)
-
 private const val NAME_MAX = 12
 
 private val WHITESPACE = Regex("\\s+")
@@ -52,7 +47,7 @@ fun parse(input: String): TerminalCommand {
         "flee", "forfeit" -> TerminalCommand.Flee
         "tree" -> TerminalCommand.Tree
         "reset" -> TerminalCommand.Reset
-        in PENDING_VERBS -> TerminalCommand.ModulePending(verb)
+        "mute", "sound" -> TerminalCommand.Sound
         else -> TerminalCommand.Unknown(verb)
     }
 }

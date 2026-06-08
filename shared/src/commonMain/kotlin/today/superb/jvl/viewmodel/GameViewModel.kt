@@ -16,6 +16,7 @@ import today.superb.jvl.core.PeerRoster
 import today.superb.jvl.core.Rng
 import today.superb.jvl.core.battle.BattlePhase
 import today.superb.jvl.core.reduce
+import today.superb.jvl.ui.settings.Tweaks
 import today.superb.jvl.core.terminal.TerminalLine
 import today.superb.jvl.core.terminal.TerminalLineKind
 import today.superb.jvl.core.terminal.parse
@@ -64,6 +65,10 @@ class GameViewModel(
 
     private val _terminal = MutableStateFlow(bootBanner(_state.value))
     val terminal: StateFlow<List<TerminalLine>> = _terminal.asStateFlow()
+
+    // 실시간 디스플레이 설정(:shared UI-state, PLAN.md). 설정 패널이 갱신.
+    private val _tweaks = MutableStateFlow(Tweaks())
+    val tweaks: StateFlow<Tweaks> = _tweaks.asStateFlow()
 
     private var toastJob: Job? = null
     private var evolveJob: Job? = null
@@ -136,6 +141,16 @@ class GameViewModel(
         val kind = if (event.kind == PeerEventKind.Challenge) TerminalLineKind.Sys else TerminalLineKind.Out
         val newLines = event.lines.map { TerminalLine(kind, it) }
         _terminal.value = (_terminal.value + newLines).takeLast(TERMINAL_CAP)
+    }
+
+    /** 설정 패널이 Tweaks를 통째로 교체(불변 copy). */
+    fun updateTweaks(tweaks: Tweaks) {
+        _tweaks.value = tweaks
+    }
+
+    /** 새 알 부화(= reset). wall-clock·새 이름 스탬프 후 dispatch. 설정 패널 "Hatch new egg" 버튼용. */
+    fun hatchNewEgg() {
+        dispatch(Action.Reset(newName = NAMES[rng.nextInt(NAMES.size)], now = nowMillis()))
     }
 
     /** 터미널 입력 한 줄 처리. parse → respond → lines append + action dispatch. */

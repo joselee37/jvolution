@@ -188,6 +188,16 @@ class ReducerTest {
     }
 
     @Test
+    fun toggle_sound_flips_flag_and_toasts() {
+        val on = reduce(initial(), Action.ToggleSound, rng())
+        assertTrue(on.sound)
+        assertEquals("SOUND ON", on.toast)
+        val off = reduce(on, Action.ToggleSound, rng())
+        assertFalse(off.sound)
+        assertEquals("MUTED", off.toast)
+    }
+
+    @Test
     fun log_is_capped_at_twenty() {
         var s = initial()
         repeat(25) { s = reduce(s, Action.Feed, rng()) }

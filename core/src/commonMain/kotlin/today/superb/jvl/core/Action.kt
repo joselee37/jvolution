@@ -42,6 +42,9 @@ sealed interface Action {
     /** 토스트 만료 — ViewModel 타이머가 1.4s 후 dispatch. */
     data object ClearToast : Action
 
+    /** 오디오 on/off 토글(터미널 `mute`/`sound`, 설정 패널 SFX). */
+    data object ToggleSound : Action
+
     // ── 피어 / 레이더 (2차 마일스톤) ──
 
     /** 피어 틱 — 위치 드리프트 + 근접 AI 판정. dt는 초 단위(ViewModel이 ~1s 주기로 dispatch). */

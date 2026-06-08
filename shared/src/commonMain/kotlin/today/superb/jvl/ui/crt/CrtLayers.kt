@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import today.superb.jvl.ui.settings.LocalTweaks
 import today.superb.jvl.ui.theme.LocalPalette
 import kotlin.math.PI
 import kotlin.math.max
@@ -31,6 +32,8 @@ private const val TWO_PI = (2.0 * PI).toFloat()
 @Composable
 fun CrtLayers(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val palette = LocalPalette.current
+    val tweaks = LocalTweaks.current
+    val intensity = tweaks.crtIntensity
     var timeMs by remember { mutableStateOf(0f) }
 
     LaunchedEffect(Unit) {
@@ -46,16 +49,19 @@ fun CrtLayers(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
             val w = size.width
             val h = size.height
 
-            // 스캔라인 — 정적 가로 주사선.
-            var y = 0f
-            while (y < h) {
-                drawLine(
-                    color = Color.Black.copy(alpha = 0.18f),
-                    start = Offset(0f, y),
-                    end = Offset(w, y),
-                    strokeWidth = 1f,
-                )
-                y += SCANLINE_GAP
+            // 스캔라인 — 정적 가로 주사선. intensity로 농도 스케일(데모 0.18*crt), 토글 가능.
+            if (tweaks.scanlines) {
+                val scanAlpha = (0.18f * intensity).coerceIn(0f, 0.4f)
+                var y = 0f
+                while (y < h) {
+                    drawLine(
+                        color = Color.Black.copy(alpha = scanAlpha),
+                        start = Offset(0f, y),
+                        end = Offset(w, y),
+                        strokeWidth = 1f,
+                    )
+                    y += SCANLINE_GAP
+                }
             }
 
             // 스캔밴드 — 위→아래로 흐르는 넓고 옅은 밝은 띠.
@@ -86,9 +92,10 @@ fun CrtLayers(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
                 size = size,
             )
 
-            // 플리커 — 드물게 미세 명멸(매우 옅게).
+            // 플리커 — 미세 명멸(intensity로 스케일). noise 켜짐 시 grain veil 추가(셰이더 전 근사).
             val flicker = 0.5f + 0.5f * sin(timeMs / FLICKER_PERIOD * TWO_PI)
-            drawRect(color = Color.Black.copy(alpha = 0.015f + 0.025f * flicker), size = size)
+            val noiseVeil = if (tweaks.noise) 0.05f * intensity * flicker else 0f
+            drawRect(color = Color.Black.copy(alpha = (0.015f + 0.025f * flicker) * intensity + noiseVeil), size = size)
         }
     }
 }

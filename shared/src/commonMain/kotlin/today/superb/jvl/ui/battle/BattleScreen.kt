@@ -24,6 +24,7 @@ import today.superb.jvl.core.battle.BattleAction
 import today.superb.jvl.core.battle.BattlePhase
 import today.superb.jvl.core.battle.BattleResult
 import today.superb.jvl.core.battle.BattleState
+import today.superb.jvl.ui.settings.LocalTweaks
 import today.superb.jvl.ui.sonar.DotCreatureCanvas
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.LocalDisplayFont
@@ -62,7 +63,7 @@ fun BattleScreen(state: GameState, onSelectMove: (Int) -> Unit, modifier: Modifi
                 Box(Modifier.weight(1f)) {
                     DotCreatureCanvas(
                         pingNonce = 0, happiness = state.happiness, asleep = false, modifier = Modifier.fillMaxSize(),
-                        species = state.species, energy = (battle.hpMe / battle.hpMaxMe).coerceAtLeast(0.15f),
+                        species = LocalTweaks.current.species, energy = (battle.hpMe / battle.hpMaxMe).coerceAtLeast(0.15f),
                     )
                 }
                 Box(Modifier.weight(1f)) {

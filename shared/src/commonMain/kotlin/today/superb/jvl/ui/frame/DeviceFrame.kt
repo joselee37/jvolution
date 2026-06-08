@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,10 @@ fun DeviceFrame(
         Modifier
             .fillMaxSize()
             .background(palette.bg)
+            // API 35 edge-to-edge: 콘텐츠를 상태바/내비바 아래로 인셋(헤더가 시스템 영역에 가려져
+            // 터치가 안 먹던 문제 해결). CRT 배경은 CrtLayers가 가장자리까지 그린다.
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(8.dp),
     ) {
         header()

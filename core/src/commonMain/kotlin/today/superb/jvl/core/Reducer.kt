@@ -158,6 +158,8 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
 
         Action.ClearToast -> state.copy(toast = null)
 
+        Action.ToggleSound -> state.copy(sound = !state.sound, toast = if (state.sound) "MUTED" else "SOUND ON")
+
         // ── 피어 / 레이더 (2차) — 데모 peerTick/accept/decline/setDnd 1:1 ──
 
         is Action.PeerTick -> {
