@@ -14,7 +14,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import today.superb.jvl.ui.sonar.species.ghostDensity
+import today.superb.jvl.core.Species
+import today.superb.jvl.ui.sonar.species.densityFor
 import today.superb.jvl.ui.theme.LocalPalette
 import kotlin.math.PI
 import kotlin.math.abs
@@ -66,6 +67,8 @@ fun DotCreatureCanvas(
     happiness: Float,
     asleep: Boolean,
     modifier: Modifier = Modifier,
+    species: Species = Species.Ghost,
+    energy: Float = 1f,
 ) {
     val palette = LocalPalette.current
     val points = remember { buildGhostPoints() }
@@ -75,6 +78,8 @@ fun DotCreatureCanvas(
     val curHappiness by rememberUpdatedState(happiness)
     val curAsleep by rememberUpdatedState(asleep)
     val curPingNonce by rememberUpdatedState(pingNonce)
+    val curSpecies by rememberUpdatedState(species)
+    val curEnergy by rememberUpdatedState(energy)
 
     // 매 프레임 갱신되어 Canvas 재그리기를 유발하는 시간/빔 상태.
     var renderT by remember { mutableStateOf(0f) }
@@ -116,13 +121,13 @@ fun DotCreatureCanvas(
                 val p = points[idx]
                 val u = p.u + breathU
                 val v = p.v + breathV
-                var density = ghostDensity(u, v, t, curHappiness)
+                var density = densityFor(curSpecies, u, v, t, curHappiness, curEnergy)
 
                 // 가장자리 jitter — 실루엣 경계를 sonar-return처럼 거칠게.
                 val jitter = p.sparsity
                 if (density == 0f) {
                     val angle = jitter * TWO_PI
-                    val sampled = ghostDensity(u + cos(angle) * 0.05f, v + sin(angle) * 0.05f, t, curHappiness)
+                    val sampled = densityFor(curSpecies, u + cos(angle) * 0.05f, v + sin(angle) * 0.05f, t, curHappiness, curEnergy)
                     if (sampled > 0.25f && jitter > 0.86f) density = 0.22f
                 } else if (density < 0.5f && jitter > 0.7f) {
                     density *= 0.35f

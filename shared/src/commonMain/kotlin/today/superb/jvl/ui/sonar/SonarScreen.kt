@@ -45,6 +45,8 @@ fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
                 happiness = state.happiness,
                 asleep = state.asleep,
                 modifier = Modifier.fillMaxSize(),
+                species = state.species,
+                energy = state.energy,
             )
 
             // 수면 표시 — 우상단 zzz(데모 `screens.jsx:213`).

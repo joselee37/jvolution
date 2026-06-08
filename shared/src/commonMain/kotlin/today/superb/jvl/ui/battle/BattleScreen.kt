@@ -60,10 +60,16 @@ fun BattleScreen(state: GameState, onSelectMove: (Int) -> Unit, modifier: Modifi
         Box(Modifier.fillMaxWidth().weight(1f)) {
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
-                    DotCreatureCanvas(pingNonce = 0, happiness = state.happiness, asleep = false, modifier = Modifier.fillMaxSize())
+                    DotCreatureCanvas(
+                        pingNonce = 0, happiness = state.happiness, asleep = false, modifier = Modifier.fillMaxSize(),
+                        species = state.species, energy = (battle.hpMe / battle.hpMaxMe).coerceAtLeast(0.15f),
+                    )
                 }
                 Box(Modifier.weight(1f)) {
-                    DotCreatureCanvas(pingNonce = 0, happiness = peer.bond, asleep = false, modifier = Modifier.fillMaxSize())
+                    DotCreatureCanvas(
+                        pingNonce = 0, happiness = peer.bond, asleep = false, modifier = Modifier.fillMaxSize(),
+                        species = peer.species, energy = (battle.hpThem / battle.hpMaxThem).coerceAtLeast(0.15f),
+                    )
                 }
             }
             PhaseOverlay(battle, state.name, peer.name, Modifier.align(Alignment.Center))
