@@ -47,12 +47,6 @@ sealed interface Action {
     /** 피어 틱 — 위치 드리프트 + 근접 AI 판정. dt는 초 단위(ViewModel이 ~1s 주기로 dispatch). */
     data class PeerTick(val dt: Float) : Action
 
-    /**
-     * 대기 중인 도전 수락 — 2차는 데모 Phase-1 스텁(유대 +0.04 + 이벤트 에코).
-     * 실제 전투 진입은 3차에서 이 분기를 `battleStart`로 교체.
-     */
-    data object AcceptRequest : Action
-
     /** 대기 중인 요청 거절. */
     data object DeclineRequest : Action
 
@@ -61,4 +55,30 @@ sealed interface Action {
      * 규칙을 순수 도메인으로 흡수해 이 reducer 분기가 처리한다(터미널 단일 액션 API 유지).
      */
     data class SetDnd(val on: Boolean) : Action
+
+    // ── 전투 (3차 마일스톤) — 데모 battle* 액션 1:1 ──
+
+    /** 전투 시작(accept/challenge 진입). view=Battle, pendingRequest 해소. */
+    data class BattleStart(val peerId: String) : Action
+
+    /** 액션 메뉴 커서 이동([set] 절대 지정 또는 [delta] 상대 이동). choose 단계에서만. */
+    data class BattleCursor(val set: Int? = null, val delta: Int = 0) : Action
+
+    /** 액션 확정 — 양측 무브 결정 + 결과 즉시 산정, myCast 단계로. */
+    data object BattleCommit : Action
+
+    /** 캐스트 비트 진행: myCast→theirCast→reveal. */
+    data object BattleAdvanceCast : Action
+
+    /** reveal→damage 전이 + HP 바 흔들림 nonce. */
+    data object BattleResolve : Action
+
+    /** damage 적용 + KO 판정(win/lose/draw) 또는 다음 턴. */
+    data object BattleApplyDamage : Action
+
+    /** 전투 이탈(결과: flee). */
+    data object BattleFlee : Action
+
+    /** 전투 종료 — 보상/페널티 적용 후 소나 복귀. */
+    data object BattleEnd : Action
 }

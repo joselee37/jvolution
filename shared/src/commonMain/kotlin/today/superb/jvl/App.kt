@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.viewmodel.koinViewModel
 import today.superb.jvl.core.View
+import today.superb.jvl.ui.battle.BattleScreen
 import today.superb.jvl.ui.bezel.MainBezel
 import today.superb.jvl.ui.crt.CrtLayers
 import today.superb.jvl.ui.frame.DeviceFrame
@@ -36,6 +37,7 @@ fun App() {
     val hue = if (state.pendingRequest != null) Hue.Alert else Hue.Green
     val bezelLabel = when (state.view) {
         View.Radar -> "LRRS-RADAR · ${state.peers.size} CONTACTS"
+        View.Battle -> "ENGAGEMENT · CH.07 · R.${(state.battle?.turn ?: 1).toString().padStart(2, '0')}"
         else -> "SONAR-OBS · ${state.stage.name.uppercase()}"
     }
 
@@ -55,9 +57,16 @@ fun App() {
                 bezel = {
                     MainBezel(label = bezelLabel) {
                         Box(Modifier.fillMaxSize()) {
-                            // 단일 화면 전환: 2차는 Sonar ↔ Radar만(tree/battle은 후속, view에 안 들어옴).
+                            // 화면 전환: Sonar ↔ Radar ↔ Battle (tree는 후속).
                             when (state.view) {
                                 View.Radar -> RadarScreen(state)
+                                View.Battle -> BattleScreen(
+                                    state = state,
+                                    onSelectMove = { i ->
+                                        vm.dispatch(today.superb.jvl.core.Action.BattleCursor(set = i))
+                                        vm.dispatch(today.superb.jvl.core.Action.BattleCommit)
+                                    },
+                                )
                                 else -> SonarScreen(state)
                             }
                             // 근접 경보 — 어느 화면이든 베젤 위에 오버레이.

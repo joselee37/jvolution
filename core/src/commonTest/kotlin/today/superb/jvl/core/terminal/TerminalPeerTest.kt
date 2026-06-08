@@ -106,9 +106,10 @@ class TerminalPeerTest {
     // ── accept / decline ───────────────────────────────────────
 
     @Test
-    fun accept_with_request_dispatches_accept() {
+    fun accept_with_request_starts_battle() {
         val r = reply("accept", state(pending = PeerRequest("hrrk", RequestType.Challenge)))
-        assertEquals(Action.AcceptRequest, r.action)
+        assertEquals(Action.BattleStart("hrrk"), r.action)
+        assertTrue(r.lines.any { it.text.contains("accepted HRRK") })
     }
 
     @Test

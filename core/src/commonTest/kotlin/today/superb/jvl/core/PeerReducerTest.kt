@@ -171,28 +171,8 @@ class PeerReducerTest {
         assertEquals("a", next.pendingRequest?.from)
     }
 
-    // ── accept / decline / dnd ─────────────────────────────────
-
-    @Test
-    fun accept_clears_request_and_bumps_peer_bond() {
-        val s = stateWith(
-            peer(id = "lumen", name = "LUMEN-3", bond = 0.2f, cooldown = 100f),
-            pending = PeerRequest("lumen", RequestType.Challenge),
-        )
-        val next = reduce(s, Action.AcceptRequest, SeededRng(1L))
-        assertNull(next.pendingRequest)
-        assertEquals(0.24f, next.peers.first { it.id == "lumen" }.bond, EPS)
-        assertEquals(1, next.peerEventNonce)
-        assertEquals(PeerEventKind.Accept, next.peerEventLatest?.kind)
-        assertTrue(next.peerEventLatest!!.lines.any { it.contains("accepted LUMEN-3") })
-        assertEquals("ENGAGEMENT QUEUED", next.toast)
-    }
-
-    @Test
-    fun accept_is_noop_without_request() {
-        val s = stateWith(peer(cooldown = 100f))
-        assertSame(s, reduce(s, Action.AcceptRequest, SeededRng(1L)))
-    }
+    // ── decline / dnd ──────────────────────────────────────────
+    // (accept는 3차에서 BattleStart로 교체 — BattleReducerTest 참조)
 
     @Test
     fun decline_clears_request_and_echoes() {

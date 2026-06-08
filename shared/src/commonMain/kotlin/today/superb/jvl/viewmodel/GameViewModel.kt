@@ -14,6 +14,7 @@ import today.superb.jvl.core.PeerEvent
 import today.superb.jvl.core.PeerEventKind
 import today.superb.jvl.core.PeerRoster
 import today.superb.jvl.core.Rng
+import today.superb.jvl.core.battle.BattlePhase
 import today.superb.jvl.core.reduce
 import today.superb.jvl.core.terminal.TerminalLine
 import today.superb.jvl.core.terminal.TerminalLineKind
@@ -66,6 +67,7 @@ class GameViewModel(
 
     private var toastJob: Job? = null
     private var evolveJob: Job? = null
+    private var battleJob: Job? = null
 
     init {
         // autoTick=false는 테스트용 — 무한 tick 루프를 끄고 dispatch/submitCommand만 검증.
@@ -98,8 +100,35 @@ class GameViewModel(
 
         if (after.toast != null && after.toast != before.toast) scheduleToastClear()
         if (after.evolving && !before.evolving) scheduleEvolveComplete()
-        // 피어 이벤트(challenge/friendly/accept/decline)는 어느 경로로 발생하든 터미널에 자동 에코.
+        // 피어 이벤트(challenge/friendly/decline)는 어느 경로로 발생하든 터미널에 자동 에코.
         if (after.peerEventNonce != before.peerEventNonce) after.peerEventLatest?.let(::echoPeerEvent)
+        maybeScheduleBattlePhase(before, after)
+    }
+
+    /**
+     * 전투 페이즈 자동 진행 — reducer가 켠 transient 페이즈를 타이머로 다음 단계로 넘긴다(데모 phase
+     * 스케줄러 1:1). 플레이어는 choose에서만 [Action.BattleCommit]로 개입. (phase/turn/result 변화 시 재스케줄.)
+     */
+    private fun maybeScheduleBattlePhase(before: GameState, after: GameState) {
+        val b = after.battle
+        val prev = before.battle
+        val changed = prev?.phase != b?.phase || prev?.turn != b?.turn || prev?.result != b?.result
+        if (!changed) return
+        battleJob?.cancel()
+        if (b == null) return
+        val next: Pair<Long, Action>? = when (b.phase) {
+            BattlePhase.MyCast, BattlePhase.TheirCast -> 700L to Action.BattleAdvanceCast
+            BattlePhase.Reveal -> 700L to Action.BattleResolve
+            BattlePhase.Damage -> 500L to Action.BattleApplyDamage
+            BattlePhase.End -> if (b.result != null) 1800L to Action.BattleEnd else null
+            BattlePhase.Choose -> null
+        }
+        if (next != null) {
+            battleJob = viewModelScope.launch {
+                delay(next.first)
+                dispatch(next.second)
+            }
+        }
     }
 
     /** 피어 이벤트를 터미널 history에 append. challenge=sys, 나머지=out(데모 `tagByKind`). */

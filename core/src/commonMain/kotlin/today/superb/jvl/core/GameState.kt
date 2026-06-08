@@ -53,6 +53,8 @@ data class GameState(
     val peerEventNonce: Int,
     /** 가장 최근 피어 이벤트의 내용. [peerEventNonce] 변화 시 TerminalScreen이 읽어 출력. */
     val peerEventLatest: PeerEvent?,
+    /** 진행 중인 전투(3차 마일스톤). 전투 중에만 non-null. */
+    val battle: today.superb.jvl.core.battle.BattleState?,
 ) {
     companion object {
         const val LOG_CAP = 20
@@ -94,6 +96,7 @@ data class GameState(
             dnd = false,
             peerEventNonce = 0,
             peerEventLatest = null,
+            battle = null,
         )
     }
 }

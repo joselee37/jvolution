@@ -50,7 +50,7 @@ sealed interface TerminalCommand {
     /** `bond <name>` — 특정 피어 관계 조회. 인자 없으면 usage. */
     data class Bond(val name: String?) : TerminalCommand
 
-    /** `accept` — 대기 도전 수락(2차는 Phase-1 스텁). */
+    /** `accept` — 대기 도전 수락 → 전투 시작(3차). */
     data object Accept : TerminalCommand
 
     /** `decline` — 대기 요청 거절. */
@@ -58,6 +58,14 @@ sealed interface TerminalCommand {
 
     /** `dnd [on|off]` — 방해금지. 인자 없으면 토글. */
     data class Dnd(val arg: String?) : TerminalCommand
+
+    // ── 전투 (3차 마일스톤) ──
+
+    /** `challenge <name>` — 특정 피어에게 도전(성격별 수락 확률). 인자 없으면 usage. */
+    data class Challenge(val name: String?) : TerminalCommand
+
+    /** `flee` / `forfeit` — 진행 중인 전투 이탈. */
+    data object Flee : TerminalCommand
 
     /** 알려진 명령이지만 후속 마일스톤(모듈 미탑재). */
     data class ModulePending(val verb: String) : TerminalCommand

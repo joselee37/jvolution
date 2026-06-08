@@ -110,9 +110,9 @@ class TerminalResponderTest {
 
     @Test
     fun module_pending_for_deferred_verbs() {
-        // 전투/계보/설정 동사는 아직 module pending(2차에서 radar/scan 등은 승격됨).
+        // 계보(tree/reset)·설정(mute/sound)만 아직 module pending(레이더·전투는 승격됨).
         assertTrue(reply("tree").lines.first().text.contains("module offline"))
-        assertTrue(reply("challenge").lines.first().text.contains("module offline"))
+        assertTrue(reply("reset").lines.first().text.contains("module offline"))
     }
 
     @Test

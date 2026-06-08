@@ -1,5 +1,13 @@
 package today.superb.jvl.core
 
+import today.superb.jvl.core.battle.BattleAction
+import today.superb.jvl.core.battle.BattleLogEntry
+import today.superb.jvl.core.battle.BattlePhase
+import today.superb.jvl.core.battle.BattleResult
+import today.superb.jvl.core.battle.BattleState
+import today.superb.jvl.core.battle.battleNarration
+import today.superb.jvl.core.battle.pickNpcMove
+import today.superb.jvl.core.battle.resolveBattleTurn
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -160,8 +168,8 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
             var toast = state.toast
             var peerEventNonce = state.peerEventNonce
             var peerEventLatest = state.peerEventLatest
-            // 전투 중 강제 DND(3차): `|| state.battle != null` 추가 예정.
-            val dndActive = state.dnd
+            // 전투 중에는 DND 강제 on으로 간주(새 도전이 끼어들지 않음).
+            val dndActive = state.dnd || state.battle != null
 
             val peers = state.peers.map { p ->
                 var bearing = ((p.bearing + p.bearingVel * dt) % 360f + 360f) % 360f
@@ -226,30 +234,6 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
             )
         }
 
-        Action.AcceptRequest -> {
-            val req = state.pendingRequest
-            if (req == null) {
-                state
-            } else {
-                val name = state.peers.find { it.id == req.from }?.name ?: req.from
-                state.copy(
-                    pendingRequest = null,
-                    peerEventNonce = state.peerEventNonce + 1,
-                    peerEventLatest = PeerEvent(
-                        PeerEventKind.Accept, req.from,
-                        listOf(
-                            "▸ accepted $name's ${req.type.name.lowercase()}.",
-                            "  [BATTLE MODULE PENDING — coming in a later milestone]",
-                        ),
-                    ),
-                    peers = state.peers.map {
-                        if (it.id == req.from) it.copy(bond = minOf(1f, it.bond + 0.04f)) else it
-                    },
-                    toast = "ENGAGEMENT QUEUED",
-                )
-            }
-        }
-
         Action.DeclineRequest -> {
             val req = state.pendingRequest
             if (req == null) {
@@ -279,6 +263,173 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
                 )
             } else {
                 state.copy(dnd = action.on, toast = if (action.on) "DND ON" else "DND OFF")
+            }
+        }
+
+        // ── 전투 (3차) — 데모 battle* reducer 케이스 1:1 ──
+
+        is Action.BattleStart -> {
+            val peer = state.peers.find { it.id == action.peerId }
+            if (peer == null) {
+                state
+            } else {
+                state.copy(
+                    view = View.Battle,
+                    battle = BattleState.start(action.peerId),
+                    pendingRequest = null,
+                    toast = "ENGAGE — ${peer.name}",
+                )
+            }
+        }
+
+        is Action.BattleCursor -> {
+            val b = state.battle
+            if (b == null || b.phase != BattlePhase.Choose) {
+                state
+            } else {
+                val n = BattleAction.entries.size
+                val cursor = action.set ?: ((b.cursor + action.delta + n) % n)
+                state.copy(battle = b.copy(cursor = cursor))
+            }
+        }
+
+        Action.BattleCommit -> {
+            val b = state.battle
+            val peer = b?.let { bb -> state.peers.find { it.id == bb.peerId } }
+            if (b == null || b.phase != BattlePhase.Choose || peer == null) {
+                state
+            } else {
+                val my = BattleAction.entries[b.cursor]
+                val their = pickNpcMove(peer.personality, b.myMoveHistory, rng)
+                val out = resolveBattleTurn(my, their, state.training, state.discipline, peer.stage, rng)
+                val narration = battleNarration(my, their, out, state.name, peer.name)
+                state.copy(
+                    battle = b.copy(
+                        myMove = my,
+                        theirMove = their,
+                        phase = BattlePhase.MyCast,
+                        myMoveHistory = b.myMoveHistory + my,
+                        lastDmgMe = out.me,
+                        lastDmgThem = out.them,
+                        log = (listOf(BattleLogEntry(out.tag, narration, out.crit, out.me, out.them)) + b.log)
+                            .take(BattleState.LOG_CAP),
+                    ),
+                )
+            }
+        }
+
+        Action.BattleAdvanceCast -> {
+            val b = state.battle
+            val next = when (b?.phase) {
+                BattlePhase.MyCast -> BattlePhase.TheirCast
+                BattlePhase.TheirCast -> BattlePhase.Reveal
+                else -> null
+            }
+            if (b == null || next == null) state else state.copy(battle = b.copy(phase = next))
+        }
+
+        Action.BattleResolve -> {
+            val b = state.battle
+            if (b == null || b.phase != BattlePhase.Reveal) {
+                state
+            } else {
+                state.copy(
+                    battle = b.copy(
+                        phase = BattlePhase.Damage,
+                        flashNonceMe = b.flashNonceMe + if (b.lastDmgMe > 0f) 1 else 0,
+                        flashNonceThem = b.flashNonceThem + if (b.lastDmgThem > 0f) 1 else 0,
+                    ),
+                )
+            }
+        }
+
+        Action.BattleApplyDamage -> {
+            val b = state.battle
+            if (b == null || b.phase != BattlePhase.Damage) {
+                state
+            } else {
+                val hpMe = maxOf(0f, b.hpMe - b.lastDmgMe)
+                val hpThem = maxOf(0f, b.hpThem - b.lastDmgThem)
+                val ko = hpMe <= 0f || hpThem <= 0f
+                val result = when {
+                    !ko -> null
+                    hpMe <= 0f && hpThem <= 0f -> BattleResult.Draw
+                    hpMe <= 0f -> BattleResult.Lose
+                    else -> BattleResult.Win
+                }
+                state.copy(
+                    battle = b.copy(
+                        hpMe = hpMe,
+                        hpThem = hpThem,
+                        phase = if (ko) BattlePhase.End else BattlePhase.Choose,
+                        result = result,
+                        myMove = if (ko) b.myMove else null,
+                        theirMove = if (ko) b.theirMove else null,
+                        turn = if (ko) b.turn else b.turn + 1,
+                    ),
+                )
+            }
+        }
+
+        Action.BattleFlee -> {
+            val b = state.battle
+            if (b == null || b.phase == BattlePhase.End) {
+                state
+            } else {
+                state.copy(battle = b.copy(phase = BattlePhase.End, result = BattleResult.Flee))
+            }
+        }
+
+        Action.BattleEnd -> {
+            val b = state.battle
+            if (b == null) {
+                state
+            } else {
+                val peerId = b.peerId
+                var happiness = state.happiness
+                var discipline = state.discipline
+                var evolveProgress = state.evolveProgress
+                val peers = when (b.result) {
+                    BattleResult.Win -> {
+                        evolveProgress = (evolveProgress + 0.20f).clamp()
+                        happiness = (happiness + 0.05f).clamp()
+                        state.peers.map {
+                            if (it.id == peerId) it.copy(battlesLost = it.battlesLost + 1, bond = minOf(1f, it.bond + 0.10f)) else it
+                        }
+                    }
+                    BattleResult.Lose -> {
+                        happiness = (happiness - 0.15f).clamp()
+                        discipline = (discipline + 0.05f).clamp()
+                        state.peers.map {
+                            if (it.id == peerId) it.copy(battlesWon = it.battlesWon + 1, bond = minOf(1f, it.bond + 0.04f)) else it
+                        }
+                    }
+                    BattleResult.Draw -> {
+                        happiness = (happiness + 0.03f).clamp()
+                        state.peers.map { if (it.id == peerId) it.copy(bond = minOf(1f, it.bond + 0.06f)) else it }
+                    }
+                    BattleResult.Flee -> {
+                        happiness = (happiness - 0.05f).clamp()
+                        state.peers.map { if (it.id == peerId) it.copy(bond = maxOf(0f, it.bond - 0.05f)) else it }
+                    }
+                    null -> state.peers
+                }
+                val toast = when (b.result) {
+                    BattleResult.Win -> "VICTORY"
+                    BattleResult.Lose -> "DEFEATED"
+                    BattleResult.Draw -> "STALEMATE"
+                    BattleResult.Flee -> "DISENGAGED"
+                    null -> null
+                }
+                state.copy(
+                    view = View.Sonar,
+                    battle = null,
+                    happiness = happiness,
+                    discipline = discipline,
+                    evolveProgress = evolveProgress,
+                    peers = peers,
+                    toast = toast,
+                )
             }
         }
     }
