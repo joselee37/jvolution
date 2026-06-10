@@ -13,7 +13,7 @@ import today.superb.jvl.ui.settings.Tweaks
  * 저장 블롭 — 스키마 버전 + 게임 상태 + 설정. 단일 JSON으로 저장.
  *
  * **저장 호환성 주의:** [GameState]에 기본값 없는 필드를 추가하거나, by-name 직렬화되는 enum
- * (Species/Stage/View/Personality/RequestType/PeerEventKind/Battle* / Hue)의 상수를 rename·remove하면
+ * (Species/Stage/View/Personality/RequestType/PeerEventKind/Battle* / Hue / BezelStyle)의 상수를 rename·remove하면
  * 기존 저장본의 decode가 깨진다(→ [SaveCodec.decode]가 null → 새 게임). 그런 변경 시 [SCHEMA_VERSION]을
  * 올리고 [SaveCodec.decode]의 마이그레이션 분기를 추가할 것. (enum 순서 변경은 안전.)
  *

@@ -12,6 +12,7 @@ import today.superb.jvl.core.Species
 import today.superb.jvl.core.Stage
 import today.superb.jvl.core.View
 import today.superb.jvl.core.battle.BattleState
+import today.superb.jvl.ui.bezel.BezelStyle
 import today.superb.jvl.ui.settings.Tweaks
 import today.superb.jvl.ui.theme.Hue
 import kotlin.test.Test
@@ -36,7 +37,7 @@ private fun durableState() = GameState.initial(
 
 private fun tweaksFixture() = Tweaks(
     theme = Hue.Amber, crtIntensity = 1.2f, scanlines = false, noise = false,
-    pulsePeriod = 8f, phosphorDecay = 2f, crtShader = true,
+    pulsePeriod = 8f, phosphorDecay = 2f, crtShader = true, bezel = BezelStyle.Vintage,
 )
 
 class SaveCodecTest {
