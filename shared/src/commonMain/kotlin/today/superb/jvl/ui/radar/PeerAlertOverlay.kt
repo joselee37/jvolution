@@ -94,7 +94,7 @@ private fun alertButton(label: String, onClick: () -> Unit) {
     val palette = LocalPalette.current
     Box(
         Modifier.border(1.dp, palette.phos).clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+            .padding(horizontal = 14.dp, vertical = 11.dp),
     ) {
         MonoText(label, color = palette.phos, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
