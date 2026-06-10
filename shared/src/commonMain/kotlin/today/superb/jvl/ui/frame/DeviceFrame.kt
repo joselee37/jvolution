@@ -18,8 +18,8 @@ import today.superb.jvl.ui.theme.LocalPalette
  * 기기 프레임 — 위→아래로 header / 메인 베젤(가변) / 터미널(고정). 데모 06 명세 **비율 근사**.
  *
  * 명세(06)는 1:1 정사각 베젤(362) + 터미널(315)의 고정 비율을 요구하지만, 1차는 베젤 `weight(1f)`
- * + 터미널 고정 `280.dp`로 근사한다. 정사각 베젤·기준 캔버스(402x874) 비율 유지는 후속(셰이더·
- * home indicator와 함께).
+ * + 터미널 고정 `312.dp`(명령 칩 스트립 30 + 터미널)로 근사한다. 정사각 베젤·기준 캔버스(402x874)
+ * 비율 유지는 후속(셰이더·home indicator와 함께).
  */
 @Composable
 fun DeviceFrame(
@@ -40,6 +40,6 @@ fun DeviceFrame(
     ) {
         header()
         Box(Modifier.fillMaxWidth().weight(1f)) { bezel() }
-        Box(Modifier.fillMaxWidth().height(280.dp)) { terminal() }
+        Box(Modifier.fillMaxWidth().height(312.dp)) { terminal() }
     }
 }

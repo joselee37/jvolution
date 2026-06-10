@@ -3,6 +3,7 @@ package today.superb.jvl
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,8 @@ import today.superb.jvl.ui.settings.LocalTweaks
 import today.superb.jvl.ui.settings.SettingsPanel
 import today.superb.jvl.ui.sonar.SonarScreen
 import today.superb.jvl.ui.tree.TreeScreen
+import today.superb.jvl.ui.chips.CommandChipStrip
+import today.superb.jvl.ui.chips.chipsFor
 import today.superb.jvl.ui.terminal.TerminalScreen
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.Hue
@@ -97,7 +100,16 @@ fun App() {
                             }
                         },
                         terminal = {
-                            TerminalScreen(lines = terminal, name = state.name, onSubmit = vm::submitCommand)
+                            Column {
+                                CommandChipStrip(
+                                    chips = chipsFor(state),
+                                    onCommand = vm::submitCommand,
+                                    modifier = Modifier.padding(bottom = 2.dp),
+                                )
+                                Box(Modifier.fillMaxWidth().weight(1f)) {
+                                    TerminalScreen(lines = terminal, name = state.name, onSubmit = vm::submitCommand)
+                                }
+                            }
                         },
                     )
                 }
