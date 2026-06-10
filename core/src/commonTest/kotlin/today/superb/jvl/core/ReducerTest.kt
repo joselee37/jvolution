@@ -231,10 +231,9 @@ class ReducerTest {
 
     @Test
     fun set_species_changes_species_quietly() {
-        val s = reduce(GameState.initial("UNIT", 0L), Action.SetSpecies(Species.Squid), rng())
-        assertEquals(Species.Squid, s.species)
-        assertNull(s.toast, "설정 변경은 토스트를 띄우지 않는다")
-        assertEquals(0, s.cycles, "케어 사이클로 세지 않는다")
+        val before = initial()
+        val s = reduce(before, Action.SetSpecies(Species.Squid), rng())
+        assertEquals(before.copy(species = Species.Squid), s)  // species만 변경, 나머지 전체 보존(토스트/cycles 포함)
     }
 
     @Test
