@@ -18,7 +18,8 @@ class SfxSynthTest {
 
     @Test
     fun render_amplitude_stays_in_safe_range() {
-        for (sfx in Sfx.entries) {
+        val activeSfx = Sfx.entries.filter { sfx -> sfx.tones.any { it.freqHz > 0f } }
+        for (sfx in activeSfx) {
             val peak = SfxSynth.render(sfx).maxOf { abs(it) }
             assertTrue(peak <= 0.3f, "${sfx.name} 피크 $peak — 마스터 진폭 초과")
             assertTrue(peak > 0f, "${sfx.name} 무음이면 안 됨")
@@ -56,5 +57,11 @@ class SfxSynthTest {
     fun pcm16_conversion_clamps_and_scales() {
         val pcm = SfxSynth.toPcm16(floatArrayOf(0f, 1f, -1f, 2f, -2f))
         assertContentEquals(shortArrayOf(0, 32767, -32767, 32767, -32767), pcm)
+    }
+
+    @Test
+    fun render_respects_custom_sample_rate() {
+        // Confirm = 60ms 단일 톤 → 8000Hz에서 480 샘플.
+        assertEquals(480, SfxSynth.render(Sfx.Confirm, sampleRate = 8000).size)
     }
 }

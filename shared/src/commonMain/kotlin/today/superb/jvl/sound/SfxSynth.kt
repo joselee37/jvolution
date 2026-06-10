@@ -14,7 +14,10 @@ object SfxSynth {
     private const val ATTACK_MS = 4    // 톤 경계 클릭 방지 엔벨로프
     private const val RELEASE_MS = 12
 
-    /** float PCM([-1,1]) 합성. iOS(AVAudioPCMBuffer float)가 직접 쓰고, 나머지는 [toPcm16] 경유. */
+    /**
+     * float PCM([-1,1]) 합성. iOS(AVAudioPCMBuffer float)가 직접 쓰고, 나머지는 [toPcm16] 경유.
+     * 사각파는 비정수 주기 버퍼에서 소량의 DC 오프셋이 생길 수 있다(청각적으로 무해 — 짧은 SFX 한정).
+     */
     fun render(sfx: Sfx, sampleRate: Int = SAMPLE_RATE): FloatArray {
         val total = sfx.tones.sumOf { it.durMs * sampleRate / 1000 }
         val out = FloatArray(total)

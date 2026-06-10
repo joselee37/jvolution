@@ -9,8 +9,8 @@ private fun t(freq: Float, ms: Int) = Tone(freq, ms)
  * 레트로 SFX 카탈로그 — 사각파 톤 시퀀스(8-bit/CRT 미학). 합성은 [SfxSynth.render],
  * 재생은 플랫폼 SfxPlayer(후속), 트리거 매핑은 viewmodel의 sfxCueFor(후속).
  *
- * 주파수는 평균율 음계 근사(C4=262, E4=330, G4=392, A4=440, C5=523, E5=659, G5=784,
- * A5=880, C6=1047, D6=1175, E6=1318).
+ * 주파수는 평균율 음계 근사(D3=147, G3=196, C4=262, E4=330, G4=392, A4=440, C5=523,
+ * E5=659, G5=784, A5=880, B5=988, C6=1047, D6=1175, E6=1318).
  */
 enum class Sfx(val tones: List<Tone>) {
     Ping(listOf(t(880f, 50), t(1318f, 80))),
