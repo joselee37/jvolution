@@ -48,6 +48,8 @@ private const val SWEEP_S = 6f      // 1회전 시간(초)
 private const val CONE_DEG = 50f    // 스윕 선행 엣지 뒤 조명 콘 각도
 private const val DECAY_S = 1.6f    // 블립 phosphor 감쇠 시상수
 private const val RINGS = 4
+private const val SCOPE_INSET_PX = 16f   // 스코프 반경 인셋 — 탭 판정과 드로가 공유
+private const val VISIBLE_B = 0.04f      // 블립 가시 임계(잔광 밝기) — 탭 판정과 드로가 공유
 
 /** 방위(0°=N, 시계방향) → 캔버스 각(라디안, 0=오른쪽). 데모 `bearingToCanvas` 1:1. */
 private fun bearingToCanvas(bearing: Float): Float = (bearing - 90f) * (PI.toFloat() / 180f)
@@ -123,6 +125,7 @@ private fun RadarScope(
     val measurer = rememberTextMeasurer()
     val labelFont = LocalMonoFont.current
     val curPeers by rememberUpdatedState(peers)
+    val curOnSelect by rememberUpdatedState(onSelectPeer)
 
     val litTime = remember { mutableMapOf<String, Float>() } // peerId → 마지막으로 스윕에 닿은 t
     var renderT by remember { mutableStateOf(0f) }
@@ -147,13 +150,13 @@ private fun RadarScope(
             detectTapGestures { tap ->
                 val cx = size.width / 2f
                 val cy = size.height / 2f
-                val r = minOf(size.width, size.height) / 2f - 16f
+                val r = minOf(size.width, size.height) / 2f - SCOPE_INSET_PX
                 if (r <= 0f) return@detectTapGestures
                 val hitRadius = 22.dp.toPx()   // 최소 44dp 히트 타깃의 반경
                 val t = renderT
                 // 보이는(잔광 살아있는) 블립 중 탭에 가장 가까운 것.
                 val hit = curPeers
-                    .filter { p -> exp(-(t - (litTime[p.id] ?: -10f)) / DECAY_S) > 0.04f }
+                    .filter { p -> exp(-(t - (litTime[p.id] ?: -10f)) / DECAY_S) > VISIBLE_B }
                     .map { p ->
                         val a = bearingToCanvas(p.bearing)
                         val pos = Offset(cx + cos(a) * p.range * r, cy + sin(a) * p.range * r)
@@ -162,14 +165,14 @@ private fun RadarScope(
                     .filter { (_, d) -> d <= hitRadius }
                     .minByOrNull { (_, d) -> d }
                     ?.first
-                onSelectPeer(hit)
+                curOnSelect(hit)
             }
         },
     ) {
         val t = renderT  // snapshot 읽기로 매 프레임 재그리기 구동.
         val cx = size.width / 2f
         val cy = size.height / 2f
-        val r = minOf(size.width, size.height) / 2f - 16f
+        val r = minOf(size.width, size.height) / 2f - SCOPE_INSET_PX
         if (r <= 0f) return@Canvas
 
         fun polar(bearing: Float, radius: Float): Offset {
@@ -217,7 +220,7 @@ private fun RadarScope(
         for (p in curPeers) {
             val sinceLit = t - (litTime[p.id] ?: -10f)
             val b = exp(-sinceLit / DECAY_S)
-            if (b <= 0.04f) continue
+            if (b <= VISIBLE_B) continue
             val pos = polar(p.bearing, p.range * r)
             drawCircle(palette.phos, radius = 7f + b * 6f, center = pos, alpha = b * 0.35f) // halo
             drawCircle(palette.phos, radius = 2.2f + b * 1.2f, center = pos, alpha = b)      // core
