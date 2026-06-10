@@ -25,7 +25,7 @@ import today.superb.jvl.ui.theme.LocalPalette
 
 /**
  * 소나 화면 — 상단 readout + 도트 생명체 + 토스트 배너.
- * 생명체 영역 탭 = ping(무음 dispatch — 로그 스팸 방지), 롱프레스 = `talk` 매크로.
+ * 생명체 영역 탭 = ping(터미널 에코 없는 dispatch — 로그 스팸 방지; SFX는 정상 재생), 롱프레스 = `talk` 매크로.
  */
 @Composable
 fun SonarScreen(
