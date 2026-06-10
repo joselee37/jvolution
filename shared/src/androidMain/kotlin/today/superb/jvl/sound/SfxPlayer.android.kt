@@ -28,13 +28,16 @@ actual class SfxPlayer actual constructor() : SfxSink {
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .setBufferSizeInBytes(pcm.size * 2)
                 .build()
-            track.write(pcm, 0, pcm.size)
-            track.setNotificationMarkerPosition(pcm.size)
-            track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
-                override fun onMarkerReached(t: AudioTrack?) { t?.release() }
-                override fun onPeriodicNotification(t: AudioTrack?) {}
-            })
-            track.play()
+            // build() 이후 실패 시 트랙을 즉시 release — 누수되면 AudioFlinger 슬롯이 고갈된다.
+            runCatching {
+                track.write(pcm, 0, pcm.size)
+                track.setNotificationMarkerPosition(pcm.size)
+                track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
+                    override fun onMarkerReached(t: AudioTrack?) { t?.release() }
+                    override fun onPeriodicNotification(t: AudioTrack?) {}
+                })
+                track.play()
+            }.onFailure { track.release() }
         } // 실패(오디오 포커스/디바이스 등)는 무해 — 연출일 뿐 게임 진행과 무관.
     }
 

@@ -126,10 +126,12 @@ class GameViewModel(
         }
     }
 
-    /** ViewModel 소멸 시 디바운스를 건너뛰고 마지막 상태를 즉시 저장(소멸 직전 ~1s 변화 손실 방지). */
+    /**
+     * ViewModel 소멸 시 디바운스를 건너뛰고 마지막 상태를 즉시 저장(소멸 직전 ~1s 변화 손실 방지).
+     * SfxSink 수명은 DI 컨테이너 소유(Koin onClose) — 여기서 dispose하지 않는다.
+     */
     override fun onCleared() {
         super.onCleared()
-        sfx?.dispose()
         val c = codec ?: return
         val s = store ?: return
         s.save(c.encode(_state.value, _tweaks.value))

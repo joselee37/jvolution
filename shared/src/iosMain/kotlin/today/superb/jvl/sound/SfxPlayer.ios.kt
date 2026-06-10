@@ -8,6 +8,9 @@ import platform.AVFAudio.AVAudioFormat
 import platform.AVFAudio.AVAudioPCMBuffer
 import platform.AVFAudio.AVAudioPCMFormatFloat32
 import platform.AVFAudio.AVAudioPlayerNode
+import platform.AVFAudio.AVAudioSession
+import platform.AVFAudio.AVAudioSessionCategoryAmbient
+import platform.AVFAudio.setActive
 
 /**
  * iOS — [AVAudioEngine] + [AVAudioPlayerNode]에 float PCM 버퍼를 스케줄.
@@ -22,13 +25,17 @@ actual class SfxPlayer actual constructor() : SfxSink {
     private var started = false
 
     private fun ensureStarted(): Boolean {
-        if (started) return true
+        // 인터럽션(전화/Siri)·백그라운드 복귀로 엔진이 멈출 수 있다 — started만 믿지 말고 running 확인.
+        if (started && engine.running) return true
         runCatching {
-            engine.attachNode(player)
+            // Ambient: 배경 음악과 믹스, silent 스위치 존중 — 짧은 게임 SFX의 관례.
+            AVAudioSession.sharedInstance().setCategory(AVAudioSessionCategoryAmbient, null)
+            AVAudioSession.sharedInstance().setActive(true, null)
+            engine.attachNode(player)   // 중복 호출 무해
             engine.connect(player, engine.mainMixerNode, format)
             started = engine.startAndReturnError(null)
         }
-        return started
+        return started && engine.running
     }
 
     actual override fun play(sfx: Sfx) {
@@ -54,6 +61,7 @@ actual class SfxPlayer actual constructor() : SfxSink {
             player.stop()
             engine.stop()
         }
+        started = false
         cache.clear()
     }
 }

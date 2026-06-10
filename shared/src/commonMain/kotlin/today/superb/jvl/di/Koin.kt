@@ -3,6 +3,7 @@ package today.superb.jvl.di
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.dsl.onClose
 import today.superb.jvl.core.DefaultRng
 import today.superb.jvl.core.Rng
 import today.superb.jvl.persistence.GameStore
@@ -16,7 +17,8 @@ val appModule = module {
     single<Rng> { DefaultRng() }
     single<GameStore> { createGameStore() }
     single { SaveCodec() }
-    single<SfxSink> { SfxPlayer() }
+    // SfxSink 수명은 컨테이너 소유 — VM 재생성 시 dispose된 싱글톤이 재주입되는 사고 방지.
+    single<SfxSink> { SfxPlayer() } onClose { it?.dispose() }
     // 명시적 생성 — autoTick 기본값(true) + 시작 시 저장본 동기 load(없으면 새 게임).
     // 동기 load는 koinViewModel()+collectAsState가 즉시 수집해 새 펫이 깜빡이는 것을 막는다.
     viewModel {
