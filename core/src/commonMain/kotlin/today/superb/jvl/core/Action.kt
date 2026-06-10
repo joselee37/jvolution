@@ -32,6 +32,9 @@ sealed interface Action {
 
     data class Rename(val name: String) : Action
 
+    /** 생명체 종 변경(설정 패널). 렌더의 단일 소스인 [GameState.species]를 직접 바꾼다. */
+    data class SetSpecies(val species: Species) : Action
+
     /**
      * 2차 멀티뷰용 선반영. **1차에서는 어떤 경로로도 dispatch되지 않는다** — 터미널의
      * tree/radar/sonar는 [today.superb.jvl.core.terminal.TerminalCommand.ModulePending]으로

@@ -154,6 +154,8 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
 
         is Action.Rename -> state.copy(name = action.name, log = log("RENAME — ${action.name}"))
 
+        is Action.SetSpecies -> state.copy(species = action.species)
+
         // 2차 선반영 — 1차에서는 dispatch되지 않음(Action.SetView KDoc 참조).
         is Action.SetView -> state.copy(view = action.view)
 
@@ -455,8 +457,10 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
                 archivedAt = action.now,
             )
             // 새 알 — 스탯/단계 초기화. 피어/유대/전적·대기요청·뷰는 생명체와 독립이므로 보존.
+            // 종은 설정 선택이므로 유지.
             GameState.initial(action.newName, action.now, state.peers).copy(
                 gen = state.gen + 1,
+                species = state.species,
                 lineage = state.lineage + epitaph,
                 view = state.view,
                 pendingRequest = state.pendingRequest,

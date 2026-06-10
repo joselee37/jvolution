@@ -228,4 +228,20 @@ class ReducerTest {
         // flash 외 다른 필드는 건드리지 않는다.
         assertEquals(flashed.copy(disciplineFlash = false), cleared)
     }
+
+    @Test
+    fun set_species_changes_species_quietly() {
+        val s = reduce(GameState.initial("UNIT", 0L), Action.SetSpecies(Species.Squid), rng())
+        assertEquals(Species.Squid, s.species)
+        assertNull(s.toast, "설정 변경은 토스트를 띄우지 않는다")
+        assertEquals(0, s.cycles, "케어 사이클로 세지 않는다")
+    }
+
+    @Test
+    fun reset_preserves_selected_species() {
+        val squid = reduce(GameState.initial("UNIT", 0L), Action.SetSpecies(Species.Squid), rng())
+        val next = reduce(squid, Action.Reset(newName = "NEXT", now = 99L), rng())
+        assertEquals(Species.Squid, next.species, "새 알도 선택한 종을 유지")
+        assertEquals(2, next.gen)
+    }
 }
