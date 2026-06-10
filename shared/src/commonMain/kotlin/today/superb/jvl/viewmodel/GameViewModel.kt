@@ -33,6 +33,7 @@ import kotlin.time.TimeSource
 private const val CARE_TICK_MS = 1500L
 private const val TOAST_MS = 1400L
 private const val EVOLVE_MS = 2200L
+private const val DISCIPLINE_FLASH_MS = 2000L
 private const val TERMINAL_CAP = 200
 
 /** 피어 틱 주기/스텝. 데모처럼 고정 dt — 드리프트는 cosmetic이라 monotonic 보정 불필요. */
@@ -51,7 +52,7 @@ private val NAMES = listOf("NAUTI", "KAIJU", "BLEEP", "MORSE", "PROBE", "KRILL")
  * 게임 상태 보유자 + tick 루프 소유. 데이터 흐름: UI → dispatch/submitCommand → reduce → StateFlow.
  *
  * transient 상태는 reducer가 켜고 ViewModel이 타이머로 끈다(PLAN.md):
- * toast(1.4s 후 ClearToast), evolving(2.2s 후 EvolveComplete).
+ * toast(1.4s 후 ClearToast), evolving(2.2s 후 EvolveComplete), disciplineFlash(2s 후 ClearDisciplineFlash).
  * 터미널 history는 ViewModel-local(1차에 peer-echo 없음 — 2차에 GameState로 이동 가능).
  *
  * tick 루프·StateFlow 방출은 viewModelScope의 기본 Main.immediate에서(reduce는 순수·경량).
@@ -84,6 +85,7 @@ class GameViewModel(
 
     private var toastJob: Job? = null
     private var evolveJob: Job? = null
+    private var disciplineJob: Job? = null
     private var battleJob: Job? = null
 
     init {
@@ -137,6 +139,7 @@ class GameViewModel(
 
         if (after.toast != null && after.toast != before.toast) scheduleToastClear()
         if (after.evolving && !before.evolving) scheduleEvolveComplete()
+        if (after.disciplineFlash && !before.disciplineFlash) scheduleDisciplineClear()
         // 피어 이벤트(challenge/friendly/decline)는 어느 경로로 발생하든 터미널에 자동 에코.
         if (after.peerEventNonce != before.peerEventNonce) after.peerEventLatest?.let(::echoPeerEvent)
         maybeScheduleBattlePhase(before, after)
@@ -220,6 +223,14 @@ class GameViewModel(
         evolveJob = viewModelScope.launch {
             delay(EVOLVE_MS)
             dispatch(Action.EvolveComplete)
+        }
+    }
+
+    private fun scheduleDisciplineClear() {
+        disciplineJob?.cancel()
+        disciplineJob = viewModelScope.launch {
+            delay(DISCIPLINE_FLASH_MS)
+            dispatch(Action.ClearDisciplineFlash)
         }
     }
 }

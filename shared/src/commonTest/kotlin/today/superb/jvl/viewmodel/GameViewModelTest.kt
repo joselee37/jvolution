@@ -22,6 +22,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -70,6 +71,18 @@ class GameViewModelTest {
         advanceTimeBy(1500)   // > TOAST_MS(1400)
         runCurrent()
         assertNull(vm.state.value.toast, "ViewModel 타이머가 ClearToast 디스패치")
+    }
+
+    @Test
+    fun scold_flash_expires_after_two_seconds() = runTest(dispatcher) {
+        val vm = vm()
+        vm.submitCommand("scold")
+        runCurrent()
+        assertTrue(vm.state.value.disciplineFlash, "scold 직후 flash on")
+
+        advanceTimeBy(2001)
+        runCurrent()
+        assertFalse(vm.state.value.disciplineFlash, "2s 후 flash 해제")
     }
 
     @Test
