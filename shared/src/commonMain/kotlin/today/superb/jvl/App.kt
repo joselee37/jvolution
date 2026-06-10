@@ -90,7 +90,11 @@ fun App() {
                                                 vm.dispatch(Action.BattleCommit)
                                             },
                                         )
-                                        else -> SonarScreen(state)
+                                        else -> SonarScreen(
+                                            state = state,
+                                            onPing = { vm.dispatch(Action.Ping) },
+                                            onTalk = { vm.submitCommand("talk") },
+                                        )
                                     }
                                     // 근접 경보 — 어느 화면이든 베젤 위에 오버레이.
                                     state.pendingRequest?.let { req ->

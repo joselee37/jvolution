@@ -1,6 +1,7 @@
 package today.superb.jvl.ui.sonar
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -21,9 +23,17 @@ import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.LocalDisplayFont
 import today.superb.jvl.ui.theme.LocalPalette
 
-/** 소나 화면 — 상단 readout + 도트 생명체 + 토스트 배너. */
+/**
+ * 소나 화면 — 상단 readout + 도트 생명체 + 토스트 배너.
+ * 생명체 영역 탭 = ping(무음 dispatch — 로그 스팸 방지), 롱프레스 = `talk` 매크로.
+ */
 @Composable
-fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
+fun SonarScreen(
+    state: GameState,
+    onPing: () -> Unit = {},
+    onTalk: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val palette = LocalPalette.current
     Column(modifier.fillMaxSize().padding(8.dp)) {
         Row(
@@ -39,7 +49,15 @@ fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
             MonoText(moodLabel(state).name, fontSize = 18.sp, fontFamily = LocalDisplayFont.current)
         }
 
-        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { onPing() }, onLongPress = { onTalk() })
+                },
+            contentAlignment = Alignment.Center,
+        ) {
             DotCreatureCanvas(
                 pingNonce = state.pingNonce,
                 happiness = state.happiness,
