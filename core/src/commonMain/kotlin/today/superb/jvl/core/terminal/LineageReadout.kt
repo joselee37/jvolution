@@ -15,6 +15,7 @@ fun activeLineageEntry(state: GameState): LineageEntry = LineageEntry(
     name = state.name,
     stage = state.stage,
     cycles = state.cycles,
+    // 스탯 ×100 truncation(toInt) — TreeScreen.activeOf와 동일(후속 통합 시 함께 변경할 것).
     happiness = (state.happiness * 100).toInt(),
     energy = (state.energy * 100).toInt(),
     bond = (state.bond * 100).toInt(),

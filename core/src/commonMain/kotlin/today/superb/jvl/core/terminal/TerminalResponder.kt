@@ -227,33 +227,7 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
 
     // ── 계보 (4차) ──
 
-    is TerminalCommand.Tree -> {
-        val arg = command.arg
-        if (arg == null) {
-            val archived = state.lineage.size
-            TerminalResponse(
-                out(
-                    "$ tree GENESIS/",
-                    "▸ archive contains $archived retired ${if (archived == 1) "generation" else "generations"} + 1 active.",
-                    "▸ lineage rendered on primary display.",
-                    "  (type `sonar` to return)",
-                ),
-                action = Action.SetView(View.Tree),
-            )
-        } else {
-            val gen = arg.toIntOrNull()
-            if (gen == null) {
-                TerminalResponse(out("usage: tree [gen]"))
-            } else {
-                val retired = state.lineage.find { it.gen == gen }
-                when {
-                    retired != null -> TerminalResponse(out(renderGeneration(retired, active = false)))
-                    gen == state.gen -> TerminalResponse(out(renderGeneration(activeLineageEntry(state), active = true)))
-                    else -> TerminalResponse(out("no such generation: G${gen.toString().padStart(2, '0')}"))
-                }
-            }
-        }
-    }
+    is TerminalCommand.Tree -> treeResponse(command.arg, state)
 
     // newName/now는 ViewModel이 NAMES 풀·nowMillis로 스탬프(reducer 순수성 유지) — 여기선 시그널.
     TerminalCommand.Reset -> TerminalResponse(
@@ -270,5 +244,28 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
 
     is TerminalCommand.Unknown ->
         TerminalResponse(out("${command.verb}: command not found. try `help`."))
+    }
+}
+
+/** `tree [gen]` 응답 — 인자 없으면 화면 전환, 세대 번호면 상세, 비숫자는 usage. */
+private fun treeResponse(arg: String?, state: GameState): TerminalResponse {
+    if (arg == null) {
+        val archived = state.lineage.size
+        return TerminalResponse(
+            out(
+                "$ tree GENESIS/",
+                "▸ archive contains $archived retired ${if (archived == 1) "generation" else "generations"} + 1 active.",
+                "▸ lineage rendered on primary display.",
+                "  (type `sonar` to return)",
+            ),
+            action = Action.SetView(View.Tree),
+        )
+    }
+    val gen = arg.toIntOrNull() ?: return TerminalResponse(out("usage: tree [gen]"))
+    val retired = state.lineage.find { it.gen == gen }
+    return when {
+        retired != null -> TerminalResponse(out(renderGeneration(retired, active = false)))
+        gen == state.gen -> TerminalResponse(out(renderGeneration(activeLineageEntry(state), active = true)))
+        else -> TerminalResponse(out("no such generation: G${gen.toString().padStart(2, '0')}"))
     }
 }
