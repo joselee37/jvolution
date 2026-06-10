@@ -2,6 +2,7 @@ package today.superb.jvl.ui.radar
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -56,9 +58,16 @@ private fun bearingToCanvas(bearing: Float): Float = (bearing - 90f) * (PI.toFlo
  * 회전 스윕 암(6s/rev) + 50° 조명 콘 + 피어 블립(스윕에 닿으면 켜지고 1.6s exp 감쇠). 동심원 4·
  * 30° 스포크·3° 외곽 눈금·NESW 십자선·중심 self 점(맥동). frame-state(스윕 위치·블립 잔광)는
  * GameState 밖에서 [withFrameNanos]로 자율 동작하고, 피어 위치만 GameState에서 읽는다([DotCreatureCanvas] 패턴).
+ * 블립 탭 = 선택 + `bond <name>` 매크로(App이 배선). 선택된 블립은 잔광과 무관한 타깃 링.
+ * 빈 영역 탭 = 선택 해제.
  */
 @Composable
-fun RadarScreen(state: GameState, modifier: Modifier = Modifier) {
+fun RadarScreen(
+    state: GameState,
+    selectedPeerId: String? = null,
+    onSelectPeer: (Peer?) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val palette = LocalPalette.current
     val incoming = state.pendingRequest?.let { req -> state.peers.find { it.id == req.from } }
 
@@ -77,7 +86,7 @@ fun RadarScreen(state: GameState, modifier: Modifier = Modifier) {
         }
 
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-            RadarScope(state.peers, Modifier.fillMaxSize())
+            RadarScope(state.peers, selectedPeerId, onSelectPeer, Modifier.fillMaxSize())
 
             // 나침반 라벨 — 캔버스 텍스트 대신 정렬 오버레이로(공통 Compose에서 안전).
             MonoText("N", Modifier.align(Alignment.TopCenter), color = palette.phosMid, fontSize = 11.sp)
@@ -104,7 +113,12 @@ fun RadarScreen(state: GameState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun RadarScope(peers: List<Peer>, modifier: Modifier = Modifier) {
+private fun RadarScope(
+    peers: List<Peer>,
+    selectedPeerId: String?,
+    onSelectPeer: (Peer?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val palette = LocalPalette.current
     val measurer = rememberTextMeasurer()
     val labelFont = LocalMonoFont.current
@@ -128,7 +142,30 @@ private fun RadarScope(peers: List<Peer>, modifier: Modifier = Modifier) {
         }
     }
 
-    Canvas(modifier) {
+    Canvas(
+        modifier.pointerInput(Unit) {
+            detectTapGestures { tap ->
+                val cx = size.width / 2f
+                val cy = size.height / 2f
+                val r = minOf(size.width, size.height) / 2f - 16f
+                if (r <= 0f) return@detectTapGestures
+                val hitRadius = 22.dp.toPx()   // 최소 44dp 히트 타깃의 반경
+                val t = renderT
+                // 보이는(잔광 살아있는) 블립 중 탭에 가장 가까운 것.
+                val hit = curPeers
+                    .filter { p -> exp(-(t - (litTime[p.id] ?: -10f)) / DECAY_S) > 0.04f }
+                    .map { p ->
+                        val a = bearingToCanvas(p.bearing)
+                        val pos = Offset(cx + cos(a) * p.range * r, cy + sin(a) * p.range * r)
+                        p to (pos - tap).getDistance()
+                    }
+                    .filter { (_, d) -> d <= hitRadius }
+                    .minByOrNull { (_, d) -> d }
+                    ?.first
+                onSelectPeer(hit)
+            }
+        },
+    ) {
         val t = renderT  // snapshot 읽기로 매 프레임 재그리기 구동.
         val cx = size.width / 2f
         val cy = size.height / 2f
@@ -192,6 +229,15 @@ private fun RadarScope(peers: List<Peer>, modifier: Modifier = Modifier) {
                     topLeft = Offset(pos.x + 7f, pos.y - 14f),
                     style = TextStyle(color = palette.phos.copy(alpha = b), fontSize = 8.sp, fontFamily = labelFont),
                 )
+            }
+        }
+
+        // 선택된 블립 — 잔광과 무관한 타깃 링(위치는 실시간 피어 위치 추적).
+        selectedPeerId?.let { sel ->
+            curPeers.find { it.id == sel }?.let { p ->
+                val pos = polar(p.bearing, p.range * r)
+                drawCircle(palette.phos, radius = 14f, center = pos, style = Stroke(1.6f), alpha = 0.95f)
+                drawCircle(palette.phos, radius = 20f, center = pos, style = Stroke(0.8f), alpha = 0.45f)
             }
         }
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,11 @@ fun App() {
     val tweaks by vm.tweaks.collectAsStateWithLifecycle()
     var settingsOpen by remember { mutableStateOf(false) }
 
+    // 레이더 블립 선택 — 화면 local 프레젠테이션 상태(GameState 밖). 레이더를 벗어나면 해제.
+    var selectedPeerId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.view) { if (state.view != View.Radar) selectedPeerId = null }
+    val selectedPeer = state.peers.find { it.id == selectedPeerId }
+
     // 도전 요청이 활성인 동안 전체 색조를 Alert(red)로 강제, 아니면 설정 테마. 데모 `--hue` 1:1.
     val hue = if (state.pendingRequest != null) Hue.Alert else tweaks.theme
     val bezelLabel = when (state.view) {
@@ -81,7 +87,14 @@ fun App() {
                             MainBezel(label = bezelLabel) {
                                 Box(Modifier.fillMaxSize()) {
                                     when (state.view) {
-                                        View.Radar -> RadarScreen(state)
+                                        View.Radar -> RadarScreen(
+                                            state = state,
+                                            selectedPeerId = selectedPeerId,
+                                            onSelectPeer = { peer ->
+                                                selectedPeerId = peer?.id
+                                                peer?.let { vm.submitCommand("bond ${it.name.lowercase()}") }
+                                            },
+                                        )
                                         View.Tree -> TreeScreen(state)
                                         View.Battle -> BattleScreen(
                                             state = state,
@@ -106,7 +119,7 @@ fun App() {
                         terminal = {
                             Column {
                                 CommandChipStrip(
-                                    chips = chipsFor(state),
+                                    chips = chipsFor(state, selectedPeer),
                                     onCommand = vm::submitCommand,
                                     modifier = Modifier.padding(bottom = 2.dp),
                                 )
