@@ -23,6 +23,8 @@ private fun chip(label: String, command: String = label.lowercase()) = CommandCh
  * 케어(수면 중엔 WAKE가 선두) → 네비(RADAR/TREE, 소나에서만).
  * 전투 중에는 FLEE만 — responder의 `allowedInBattle`과 일치(케어 칩을 눌러봤자 locked라
  * 보여주지 않는 것이 옳다).
+ * 전투 중 responder가 허용하는 Help/Clear/Sound 등은 인지 부하를 줄이기 위해 칩에서 의도적으로 제외.
+ * CHALLENGE 칩 command는 피어 이름이 단일 토큰이라는 전제(파서가 첫 인자만 취함 — 현 로스터 전부 충족).
  *
  * @param selectedPeer 레이더에서 탭으로 선택된 블립(화면 local state — GameState 밖).
  */
@@ -51,6 +53,7 @@ fun chipsFor(state: GameState, selectedPeer: Peer? = null): List<CommandChip> {
                 }
             }
             View.Tree -> add(chip("BACK", "back"))
+            View.Battle -> {} // battle != null 가드가 위에서 FLEE를 반환 — 정상 경로에선 도달 불가
             else -> {}
         }
         if (state.asleep) add(chip("WAKE"))

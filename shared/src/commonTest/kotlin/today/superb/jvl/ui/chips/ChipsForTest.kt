@@ -57,6 +57,13 @@ class ChipsForTest {
     }
 
     @Test
+    fun pending_request_outranks_evolve_chip() {
+        val both = base.copy(canEvolve = true, pendingRequest = PeerRequest("p1", RequestType.Challenge))
+        val l = labels(both)
+        assertEquals(listOf("ACCEPT", "DECLINE", "★EVOLVE"), l.take(3))
+    }
+
+    @Test
     fun battle_locks_everything_but_flee() {
         val inBattle = reduce(
             base.copy(peers = listOf(peer("p1", "HRRK"))),
@@ -74,6 +81,17 @@ class ChipsForTest {
         assertTrue(l.any { it == "CHALLENGE HRRK" })
         val cmd = chipsFor(onRadar, onRadar.peers.first()).first { it.label == "CHALLENGE HRRK" }.command
         assertEquals("challenge hrrk", cmd)
+    }
+
+    @Test
+    fun radar_with_pending_request_keeps_alerts_first_then_back() {
+        val onRadar = base.copy(
+            view = View.Radar,
+            peers = listOf(peer("p1", "HRRK")),
+            pendingRequest = PeerRequest("p1", RequestType.Challenge),
+        )
+        val l = labels(onRadar)
+        assertEquals(listOf("ACCEPT", "DECLINE", "BACK"), l.take(3))
     }
 
     @Test
