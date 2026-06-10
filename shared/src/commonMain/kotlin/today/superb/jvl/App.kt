@@ -1,5 +1,10 @@
 package today.superb.jvl
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.viewmodel.koinViewModel
@@ -74,7 +80,25 @@ fun App() {
                             ) {
                                 MonoText("SONAR-OBS · MK.III", fontFamily = LocalTechFont.current)
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    MonoText("◉ LINK", fontFamily = LocalTechFont.current)
+                                    // LINK — 피어 채널 상태: 접점 수 표시, 도전 수신 시 점멸, 탭 = scan 매크로.
+                                    val linkAlpha = if (state.pendingRequest != null) {
+                                        val blink by rememberInfiniteTransition(label = "link").animateFloat(
+                                            initialValue = 0.3f,
+                                            targetValue = 1f,
+                                            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+                                            label = "link-blink",
+                                        )
+                                        blink
+                                    } else {
+                                        1f
+                                    }
+                                    MonoText(
+                                        "◉ LINK·${state.peers.size}",
+                                        fontFamily = LocalTechFont.current,
+                                        modifier = Modifier
+                                            .alpha(linkAlpha)
+                                            .clickable { vm.submitCommand("scan") },
+                                    )
                                     MonoText(
                                         "⚙ CFG",
                                         fontFamily = LocalTechFont.current,
