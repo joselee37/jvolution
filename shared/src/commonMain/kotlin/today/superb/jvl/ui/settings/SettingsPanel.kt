@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import today.superb.jvl.core.Species
+import today.superb.jvl.ui.bezel.BezelStyle
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.Hue
 import today.superb.jvl.ui.theme.LocalDisplayFont
@@ -67,6 +68,9 @@ fun SettingsPanel(
             toggleRow("Scanlines", tweaks.scanlines) { onTweaks(tweaks.copy(scanlines = it)) }
             toggleRow("Noise / static", tweaks.noise) { onTweaks(tweaks.copy(noise = it)) }
             toggleRow("CRT shader (beta)", tweaks.crtShader) { onTweaks(tweaks.copy(crtShader = it)) }
+
+            section("BEZEL")
+            chipRow("Housing", BezelStyle.entries, tweaks.bezel, { it.name.lowercase() }) { onTweaks(tweaks.copy(bezel = it)) }
 
             section("CREATURE")
             chipRow("Species", Species.entries, species, { it.name.lowercase() }) { onSelectSpecies(it) }

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
 import kotlinx.serialization.Serializable
+import today.superb.jvl.ui.bezel.BezelStyle
 import today.superb.jvl.ui.theme.Hue
 
 /**
@@ -24,6 +25,8 @@ data class Tweaks(
     val crtShader: Boolean = false,
     val pulsePeriod: Float = 5f,      // [2, 12] s
     val phosphorDecay: Float = 1f,    // [0.3, 4] s
+    /** 메인 베젤 하우징(데모 Housing 라디오 1:1). */
+    val bezel: BezelStyle = BezelStyle.Military,
 )
 
 /** 현재 Tweaks를 트리에 노출(CrtLayers/DotCreatureCanvas/screens가 소비). */

@@ -108,7 +108,7 @@ fun App() {
                             }
                         },
                         bezel = {
-                            MainBezel(label = bezelLabel) {
+                            MainBezel(label = bezelLabel, style = tweaks.bezel) {
                                 Box(Modifier.fillMaxSize()) {
                                     when (state.view) {
                                         View.Radar -> RadarScreen(
