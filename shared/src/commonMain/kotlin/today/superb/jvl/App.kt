@@ -114,7 +114,13 @@ fun App() {
                                     }
                                     // 근접 경보 — 어느 화면이든 베젤 위에 오버레이.
                                     state.pendingRequest?.let { req ->
-                                        state.peers.find { it.id == req.from }?.let { PeerAlertOverlay(it) }
+                                        state.peers.find { it.id == req.from }?.let {
+                                            PeerAlertOverlay(
+                                                peer = it,
+                                                onAccept = { vm.submitCommand("accept") },
+                                                onDecline = { vm.submitCommand("decline") },
+                                            )
+                                        }
                                     }
                                 }
                             }

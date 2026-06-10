@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,9 +34,16 @@ import today.superb.jvl.ui.theme.LocalPalette
  *
  * 입력을 막지 않는다(터미널은 별도 영역에서 계속 `accept`/`decline`을 받음). 프레임이 깜빡이고,
  * 전체 색조는 [today.superb.jvl.ui.theme.Hue.Alert] 팔레트(App에서 pendingRequest로 전환)로 적색이다.
+ *
+ * ACCEPT/DECLINE 버튼 탭 = 터미널 매크로(App이 배선) — 타이핑과 동일 경로.
  */
 @Composable
-fun PeerAlertOverlay(peer: Peer, modifier: Modifier = Modifier) {
+fun PeerAlertOverlay(
+    peer: Peer,
+    onAccept: () -> Unit = {},
+    onDecline: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val palette = LocalPalette.current
     val blink by rememberInfiniteTransition(label = "alert-frame").animateFloat(
         initialValue = 0.35f,
@@ -68,8 +76,27 @@ fun PeerAlertOverlay(peer: Peer, modifier: Modifier = Modifier) {
 
             Spacer(Modifier.height(8.dp))
             MonoText("CHALLENGE INCOMING", color = palette.phos, fontSize = 12.sp)
-            MonoText("▸ terminal: accept · decline", color = palette.phosMid, fontSize = 10.sp)
+
+            Row(
+                Modifier.padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                alertButton("▸ ACCEPT", onAccept)
+                alertButton("✕ DECLINE", onDecline)
+            }
+            MonoText("▸ terminal: accept · decline", color = palette.phosDim, fontSize = 9.sp, modifier = Modifier.padding(top = 6.dp))
         }
+    }
+}
+
+@Composable
+private fun alertButton(label: String, onClick: () -> Unit) {
+    val palette = LocalPalette.current
+    Box(
+        Modifier.border(1.dp, palette.phos).clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    ) {
+        MonoText(label, color = palette.phos, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 
