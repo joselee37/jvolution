@@ -122,6 +122,7 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
             discipline = (state.discipline + 0.1f).clamp(),
             happiness = (state.happiness - 0.08f).clamp(),
             bond = (state.bond - 0.02f).clamp(),
+            disciplineFlash = true,
             log = log("SCOLD — reprimand"),
             toast = "SCOLDED",
         )
@@ -157,6 +158,8 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
         is Action.SetView -> state.copy(view = action.view)
 
         Action.ClearToast -> state.copy(toast = null)
+
+        Action.ClearDisciplineFlash -> state.copy(disciplineFlash = false)
 
         Action.ToggleSound -> state.copy(sound = !state.sound, toast = if (state.sound) "MUTED" else "SOUND ON")
 

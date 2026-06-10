@@ -82,6 +82,7 @@ class ReducerTest {
         assertEquals(0.3f, s.discipline, EPS)     // 0.2 + 0.1
         assertEquals(0.52f, s.happiness, EPS)     // 0.6 - 0.08
         assertEquals(0.38f, s.bond, EPS)          // 0.4 - 0.02
+        assertTrue(s.disciplineFlash)
     }
 
     @Test
@@ -211,5 +212,20 @@ class ReducerTest {
         assertNotSame(s, next)
         assertEquals(0.45f, s.hunger, EPS)        // original untouched
         assertTrue(s.log.isEmpty())
+    }
+
+    @Test
+    fun discipline_turns_on_discipline_flash() {
+        val s = reduce(initial(), Action.Discipline, rng())
+        assertTrue(s.disciplineFlash, "Discipline은 disciplineFlash를 켠다")
+    }
+
+    @Test
+    fun clear_discipline_flash_turns_it_off() {
+        val flashed = reduce(initial(), Action.Discipline, rng())
+        val cleared = reduce(flashed, Action.ClearDisciplineFlash, rng())
+        assertFalse(cleared.disciplineFlash)
+        // flash 외 다른 필드는 건드리지 않는다.
+        assertEquals(flashed.copy(disciplineFlash = false), cleared)
     }
 }

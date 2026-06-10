@@ -27,8 +27,8 @@ class MoodTest {
 
     @Test
     fun scolded_reachable_in_isolation() {
-        // disciplineFlash는 어떤 reducer 분기도 켜지 않아 1차에서 도달 불가(데모 버그 보존).
-        // 분기 자체는 격리 시 도달함을 문서화 — 2차 재설계 시 회귀 가드.
+        // moodLabel 우선순위 단위 — disciplineFlash=true 직접 주입으로 SCOLDED 분기 격리 테스트.
+        // reducer 경유 통합 테스트는 scolded_mood_is_reachable_after_discipline 참조.
         assertEquals(Mood.SCOLDED, moodLabel(base().copy(disciplineFlash = true)))
     }
 
@@ -62,5 +62,11 @@ class MoodTest {
     @Test
     fun drowsy_when_low_energy() {
         assertEquals(Mood.DROWSY, moodLabel(base().copy(energy = 0.24f)))
+    }
+
+    @Test
+    fun scolded_mood_is_reachable_after_discipline() {
+        val s = reduce(base(), Action.Discipline, SeededRng(42L))
+        assertEquals(Mood.SCOLDED, moodLabel(s))
     }
 }

@@ -42,6 +42,9 @@ sealed interface Action {
     /** 토스트 만료 — ViewModel 타이머가 1.4s 후 dispatch. */
     data object ClearToast : Action
 
+    /** 훈육 플래시 만료 — ViewModel 타이머가 2s 후 dispatch([Discipline]이 켠 것을 끔). */
+    data object ClearDisciplineFlash : Action
+
     /** 오디오 on/off 토글(터미널 `mute`/`sound`, 설정 패널 SFX). */
     data object ToggleSound : Action
 
