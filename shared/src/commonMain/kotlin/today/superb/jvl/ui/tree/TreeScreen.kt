@@ -1,5 +1,6 @@
 package today.superb.jvl.ui.tree
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import today.superb.jvl.core.GameState
-import today.superb.jvl.core.LineageEntry
+import today.superb.jvl.core.terminal.activeLineageEntry
 import today.superb.jvl.nowMillis
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.LocalDisplayFont
@@ -22,8 +23,8 @@ import today.superb.jvl.ui.theme.LocalMonoFont
 import today.superb.jvl.ui.theme.LocalPalette
 import kotlin.math.max
 
-/** 트리 한 줄 — 색 구분용 dim(은퇴)/alive(현 세대 status). */
-private data class TreeLine(val text: String, val dim: Boolean = false, val alive: Boolean = false)
+/** 트리 한 줄 — dim(은퇴)/alive(현 세대 status) 색 구분, [gen]은 노드 헤더 줄만(탭 → `tree <gen>`). */
+private data class TreeLine(val text: String, val dim: Boolean = false, val alive: Boolean = false, val gen: Int? = null)
 
 /** 상대시간. 데모 `fmtTime` 1:1. */
 private fun fmtTime(ms: Long, now: Long): String {
@@ -38,9 +39,10 @@ private fun fmtTime(ms: Long, now: Long): String {
 /**
  * 계보 화면 — 데모 `TreeScreen` 포팅. GENESIS/ 루트 아래 세대별 `Gnn_NAME/` 노드를 리눅스 tree
  * 스타일로 그린다. 현 세대는 `◀ ACTIVE` + 라이브 무드/유대, 은퇴 세대는 dim + `✟ retired` + 경과시간.
+ * 노드 헤더 탭 = `tree <gen>` 매크로(세대 상세를 터미널에 출력 — App이 배선).
  */
 @Composable
-fun TreeScreen(state: GameState, modifier: Modifier = Modifier) {
+fun TreeScreen(state: GameState, onSelectGen: (Int) -> Unit = {}, modifier: Modifier = Modifier) {
     val palette = LocalPalette.current
     val now = nowMillis()
     val nodeCount = state.lineage.size + 1
@@ -61,7 +63,12 @@ fun TreeScreen(state: GameState, modifier: Modifier = Modifier) {
         LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(top = 6.dp)) {
             items(lines) { line ->
                 MonoText(
-                    line.text,
+                    text = line.text,
+                    modifier = if (line.gen != null) {
+                        Modifier.fillMaxWidth().clickable { onSelectGen(line.gen) }
+                    } else {
+                        Modifier
+                    },
                     color = when {
                         line.alive -> palette.phos
                         line.dim -> palette.phosDim
@@ -80,7 +87,7 @@ fun TreeScreen(state: GameState, modifier: Modifier = Modifier) {
 }
 
 private fun buildTreeLines(state: GameState, now: Long): List<TreeLine> {
-    val nodes = state.lineage.map { it to true } + (activeOf(state) to false)
+    val nodes = state.lineage.map { it to true } + (activeLineageEntry(state) to false)
     val totalCycles = state.lineage.sumOf { it.cycles } + state.cycles
     val out = ArrayList<TreeLine>()
     out += TreeLine("$ tree GENESIS/")
@@ -91,7 +98,7 @@ private fun buildTreeLines(state: GameState, now: Long): List<TreeLine> {
         val branch = if (last) "└── " else "├── "
         val cont = if (last) "    " else "│   "
         val activeTag = if (retired) "" else "  ◀ ACTIVE"
-        out += TreeLine("$branch" + "G${e.gen.toString().padStart(2, '0')}_${e.name}/$activeTag", dim = retired)
+        out += TreeLine("$branch" + "G${e.gen.toString().padStart(2, '0')}_${e.name}/$activeTag", dim = retired, gen = e.gen)
         out += field(cont, "stage     ", e.stage.name.lowercase(), retired)
         out += field(cont, "cycles    ", e.cycles.toString().padStart(4, '0'), retired)
         if (retired) {
@@ -110,7 +117,7 @@ private fun buildTreeLines(state: GameState, now: Long): List<TreeLine> {
 
     out += TreeLine("─────────────────────────────")
     out += TreeLine("${nodes.size} ${if (nodes.size == 1) "directory" else "directories"}, $totalCycles cycles total", dim = true)
-    out += TreeLine("▸ type `sonar` to return", dim = true)
+    out += TreeLine("▸ tap a node for detail · type `sonar` to return", dim = true)
     return out
 }
 
@@ -119,17 +126,3 @@ private fun field(cont: String, key: String, value: String, dim: Boolean, alive:
     return TreeLine("$cont$branch$key$value", dim = dim, alive = alive)
 }
 
-/** 현 세대를 LineageEntry 모양으로 어댑트(트리 렌더 통일). archivedAt=0 → "----". */
-private fun activeOf(state: GameState): LineageEntry = LineageEntry(
-    gen = state.gen,
-    name = state.name,
-    stage = state.stage,
-    cycles = state.cycles,
-    happiness = (state.happiness * 100).toInt(),
-    energy = (state.energy * 100).toInt(),
-    bond = (state.bond * 100).toInt(),
-    discipline = (state.discipline * 100).toInt(),
-    training = (state.training * 100).toInt(),
-    hatchedAt = state.hatchedAt,
-    archivedAt = 0L,
-)

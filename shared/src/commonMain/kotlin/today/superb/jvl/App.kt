@@ -95,7 +95,10 @@ fun App() {
                                                 peer?.let { vm.submitCommand("bond ${it.name.lowercase()}") }
                                             },
                                         )
-                                        View.Tree -> TreeScreen(state)
+                                        View.Tree -> TreeScreen(
+                                            state = state,
+                                            onSelectGen = { vm.submitCommand("tree $it") },
+                                        )
                                         View.Battle -> BattleScreen(
                                             state = state,
                                             onSelectMove = { i ->
