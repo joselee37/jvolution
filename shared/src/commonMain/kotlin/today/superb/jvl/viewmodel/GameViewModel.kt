@@ -20,6 +20,7 @@ import today.superb.jvl.core.PeerRoster
 import today.superb.jvl.core.Rng
 import today.superb.jvl.core.battle.BattlePhase
 import today.superb.jvl.core.reduce
+import today.superb.jvl.sound.SfxSink
 import today.superb.jvl.ui.settings.Tweaks
 import today.superb.jvl.core.terminal.TerminalLine
 import today.superb.jvl.core.terminal.TerminalLineKind
@@ -64,6 +65,7 @@ class GameViewModel(
     initialTweaks: Tweaks? = null,
     private val store: GameStore? = null,
     private val codec: SaveCodec? = null,
+    private val sfx: SfxSink? = null,
 ) : ViewModel() {
 
     // initialState/initialTweaks는 영속화 복원(Koin 팩토리가 load) + 테스트 시드 seam. null이면 새 게임.
@@ -127,6 +129,7 @@ class GameViewModel(
     /** ViewModel 소멸 시 디바운스를 건너뛰고 마지막 상태를 즉시 저장(소멸 직전 ~1s 변화 손실 방지). */
     override fun onCleared() {
         super.onCleared()
+        sfx?.dispose()
         val c = codec ?: return
         val s = store ?: return
         s.save(c.encode(_state.value, _tweaks.value))
@@ -136,6 +139,9 @@ class GameViewModel(
         val before = _state.value
         val after = reduce(before, action, rng)
         _state.value = after
+
+        // SFX — 음소거 게이트는 after 기준(켜는 토글 자신도 들리게).
+        if (after.sound) sfxCueFor(action, before, after)?.let { cue -> sfx?.play(cue) }
 
         if (after.toast != null && after.toast != before.toast) scheduleToastClear()
         if (after.evolving && !before.evolving) scheduleEvolveComplete()

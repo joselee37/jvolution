@@ -18,6 +18,8 @@ import today.superb.jvl.core.SeededRng
 import today.superb.jvl.core.Species
 import today.superb.jvl.core.Stage
 import today.superb.jvl.core.terminal.TerminalLineKind
+import today.superb.jvl.sound.Sfx
+import today.superb.jvl.sound.SfxSink
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -145,4 +147,28 @@ class GameViewModelTest {
     // 루프는 정리 단계(advanceUntilIdle)가 끝나지 않아 행을 유발한다(기존 care 루프도 동일 이유로
     // autoTick=false). PeerTick 로직은 reducer 테스트 + 위 dispatch(PeerTick) 에코 테스트가 커버하고,
     // "1s마다 dispatch"는 검증된 care 루프와 동형이라 앱 실행으로 검증한다.
+
+    @Test
+    fun sfx_plays_only_when_sound_is_on() = runTest(dispatcher) {
+        val sink = RecordingSfx()
+        val vm = GameViewModel(SeededRng(42L), autoTick = false, sfx = sink)
+
+        vm.submitCommand("feed")
+        runCurrent()
+        assertTrue(sink.played.isEmpty(), "sound off — 무음")
+
+        vm.submitCommand("sound")   // ToggleSound → sound=true + Confirm
+        runCurrent()
+        assertEquals(listOf(Sfx.Confirm), sink.played)
+
+        vm.submitCommand("feed")
+        runCurrent()
+        assertEquals(Sfx.Care, sink.played.last(), "sound on — Care 재생")
+    }
+}
+
+private class RecordingSfx : SfxSink {
+    val played = mutableListOf<Sfx>()
+    override fun play(sfx: Sfx) { played.add(sfx) }
+    override fun dispose() {}
 }
