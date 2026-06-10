@@ -36,8 +36,10 @@ import kotlin.math.round
 @Composable
 fun SettingsPanel(
     tweaks: Tweaks,
+    species: Species,
     sound: Boolean,
     onTweaks: (Tweaks) -> Unit,
+    onSelectSpecies: (Species) -> Unit,
     onToggleSound: () -> Unit,
     onHatch: () -> Unit,
     onClose: () -> Unit,
@@ -66,7 +68,7 @@ fun SettingsPanel(
             toggleRow("CRT shader (beta)", tweaks.crtShader) { onTweaks(tweaks.copy(crtShader = it)) }
 
             section("CREATURE")
-            chipRow("Species", Species.entries, tweaks.species, { it.name.lowercase() }) { onTweaks(tweaks.copy(species = it)) }
+            chipRow("Species", Species.entries, species, { it.name.lowercase() }) { onSelectSpecies(it) }
 
             section("SONAR")
             sliderRow("Pulse period", tweaks.pulsePeriod, 2f..12f, "s") { onTweaks(tweaks.copy(pulsePeriod = it)) }

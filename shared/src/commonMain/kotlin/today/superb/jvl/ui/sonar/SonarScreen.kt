@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import today.superb.jvl.core.GameState
 import today.superb.jvl.core.moodLabel
-import today.superb.jvl.ui.settings.LocalTweaks
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.LocalDisplayFont
 import today.superb.jvl.ui.theme.LocalPalette
@@ -46,7 +45,7 @@ fun SonarScreen(state: GameState, modifier: Modifier = Modifier) {
                 happiness = state.happiness,
                 asleep = state.asleep,
                 modifier = Modifier.fillMaxSize(),
-                species = LocalTweaks.current.species,   // 종 선택은 설정(데모 tweaks.species)
+                species = state.species,   // 종은 게임 상태가 단일 소스(설정 패널이 SetSpecies로 변경)
                 energy = state.energy,
             )
 

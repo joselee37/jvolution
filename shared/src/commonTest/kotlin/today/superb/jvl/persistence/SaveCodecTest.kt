@@ -36,7 +36,7 @@ private fun durableState() = GameState.initial(
 
 private fun tweaksFixture() = Tweaks(
     theme = Hue.Amber, crtIntensity = 1.2f, scanlines = false, noise = false,
-    species = Species.Pixel, pulsePeriod = 8f, phosphorDecay = 2f, crtShader = true,
+    pulsePeriod = 8f, phosphorDecay = 2f, crtShader = true,
 )
 
 class SaveCodecTest {
@@ -114,6 +114,34 @@ class SaveCodecTest {
     @Test
     fun decode_of_null_returns_null() {
         assertNull(codec.decode(null))
+    }
+
+    @Test
+    fun decode_migrates_v1_tweaks_species_into_game_state() {
+        val codec = SaveCodec()
+        val game = GameState.initial("UNIT", 0L)
+        // 현행 코덱으로 v2 블롭을 만든 뒤 schemaVersion을 1로 바꾸고 tweaks에 species를 주입해
+        // v1 형상을 재구성한다 — 필드 나열 없이 v1 디스크 포맷과 동형.
+        val v2 = codec.encode(game, Tweaks())
+        val v1 = v2
+            .replaceFirst("\"schemaVersion\":2", "\"schemaVersion\":1")
+            .replaceFirst("\"tweaks\":{", "\"tweaks\":{\"species\":\"Squid\",")
+
+        val blob = codec.decode(v1)
+
+        assertNotNull(blob, "v1 블롭은 마이그레이션되어 디코드된다")
+        assertEquals(Species.Squid, blob.game.species, "tweaks.species → game.species 이관")
+        assertEquals(SaveBlob.SCHEMA_VERSION, blob.schemaVersion)
+    }
+
+    @Test
+    fun decode_v1_without_species_falls_back_to_game_species() {
+        val codec = SaveCodec()
+        val v2 = codec.encode(GameState.initial("UNIT", 0L), Tweaks())
+        val v1 = v2.replaceFirst("\"schemaVersion\":2", "\"schemaVersion\":1")
+        val blob = codec.decode(v1)
+        assertNotNull(blob)
+        assertEquals(Species.Ghost, blob.game.species)
     }
 
     // #5 가드: 모든 transient를 세팅한 상태의 strippedForSave()가 durable-only 기준 상태와 같아야 함.

@@ -105,8 +105,10 @@ fun App() {
                 if (settingsOpen) {
                     SettingsPanel(
                         tweaks = tweaks,
+                        species = state.species,
                         sound = state.sound,
                         onTweaks = vm::updateTweaks,
+                        onSelectSpecies = { vm.dispatch(Action.SetSpecies(it)) },
                         onToggleSound = { vm.dispatch(Action.ToggleSound) },
                         onHatch = { vm.hatchNewEgg(); settingsOpen = false },
                         onClose = { settingsOpen = false },
