@@ -18,18 +18,24 @@ fun sfxCueFor(action: Action, before: GameState, after: GameState): Sfx? = when 
 
     Action.Feed, Action.Play, Action.Clean, Action.Heal, Action.Train -> Sfx.Care
     Action.Discipline -> Sfx.Scold
-    Action.Sleep -> if (after.asleep) Sfx.SleepCue else Sfx.WakeCue
+    Action.Sleep -> when {
+        after.asleep && !before.asleep -> Sfx.SleepCue
+        !after.asleep && before.asleep -> Sfx.WakeCue
+        else -> null
+    }
 
     Action.Evolve -> if (after.evolving && !before.evolving) Sfx.Evolve else null
     Action.EvolveComplete -> if (after.stage != before.stage) Sfx.EvolveDone else null
 
     is Action.PeerTick -> when {
+        // pendingRequest null→nonnull은 challenge에서만 발생(single-request gate; friendly는 pendingRequest를 안 바꿈).
         before.pendingRequest == null && after.pendingRequest != null -> Sfx.Alert
         after.peerEventNonce != before.peerEventNonce &&
             after.peerEventLatest?.kind == PeerEventKind.Friendly -> Sfx.Friendly
         else -> null
     }
 
+    // 이미 전투 중이면 무음(가드된 액션)
     is Action.BattleStart -> if (before.battle == null && after.battle != null) Sfx.Alert else null
 
     Action.BattleResolve -> {
