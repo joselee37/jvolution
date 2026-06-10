@@ -1,6 +1,8 @@
 package today.superb.jvl.ui.battle
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,9 +20,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,12 +61,12 @@ fun BattleScreen(state: GameState, onSelectMove: (Int) -> Unit, modifier: Modifi
     Column(modifier.fillMaxSize().padding(8.dp)) {
         // ── HP 헤더 ──
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            HpBar(state.name, battle.hpMe, battle.hpMaxMe, Alignment.Start, Modifier.weight(1f))
+            HpBar(state.name, battle.hpMe, battle.hpMaxMe, Alignment.Start, battle.flashNonceMe, Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 MonoText("ENGAGEMENT", color = palette.phosDim, fontSize = 8.sp)
                 MonoText("R.${battle.turn.toString().padStart(2, '0')}", color = palette.phos, fontSize = 13.sp, fontFamily = LocalDisplayFont.current)
             }
-            HpBar(peer.name, battle.hpThem, battle.hpMaxThem, Alignment.End, Modifier.weight(1f))
+            HpBar(peer.name, battle.hpThem, battle.hpMaxThem, Alignment.End, battle.flashNonceThem, Modifier.weight(1f))
         }
 
         // ── 아레나(측면 스크롤 + 카메라 팬) + 클래시 오버레이 ──
@@ -136,17 +142,36 @@ fun BattleScreen(state: GameState, onSelectMove: (Int) -> Unit, modifier: Modifi
 }
 
 @Composable
-private fun HpBar(name: String, hp: Float, hpMax: Int, align: Alignment.Horizontal, modifier: Modifier = Modifier) {
+private fun HpBar(
+    name: String,
+    hp: Float,
+    hpMax: Int,
+    align: Alignment.Horizontal,
+    flashNonce: Int,
+    modifier: Modifier = Modifier,
+) {
     val palette = LocalPalette.current
     val filled = ceil(hp.coerceAtLeast(0f)).toInt()
+
+    // 피격 플래시 — reducer가 올리는 flashNonce를 소비(420ms 화이트아웃 후 감쇠).
+    val flash = remember { Animatable(0f) }
+    LaunchedEffect(flashNonce) {
+        if (flashNonce > 0) {
+            flash.snapTo(1f)
+            flash.animateTo(0f, tween(420))
+        }
+    }
+    val cellOn = lerp(palette.phos, Color.White, flash.value * 0.8f)
+    val cellBorder = lerp(palette.phosDim, Color.White, flash.value * 0.8f)
+
     Column(modifier, horizontalAlignment = align) {
         MonoText(name, color = palette.phos, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = LocalDisplayFont.current)
         Row {
             repeat(hpMax) { i ->
                 Box(
                     Modifier.padding(end = 2.dp).size(width = 12.dp, height = 8.dp)
-                        .background(if (i < filled) palette.phos else palette.phosGrid)
-                        .border(1.dp, palette.phosDim),
+                        .background(if (i < filled) cellOn else palette.phosGrid)
+                        .border(1.dp, cellBorder),
                 )
             }
         }
