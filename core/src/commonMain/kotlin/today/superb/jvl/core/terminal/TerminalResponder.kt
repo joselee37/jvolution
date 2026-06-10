@@ -227,17 +227,32 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
 
     // ── 계보 (4차) ──
 
-    TerminalCommand.Tree -> {
-        val archived = state.lineage.size
-        TerminalResponse(
-            out(
-                "$ tree GENESIS/",
-                "▸ archive contains $archived retired ${if (archived == 1) "generation" else "generations"} + 1 active.",
-                "▸ lineage rendered on primary display.",
-                "  (type `sonar` to return)",
-            ),
-            action = Action.SetView(View.Tree),
-        )
+    is TerminalCommand.Tree -> {
+        val arg = command.arg
+        if (arg == null) {
+            val archived = state.lineage.size
+            TerminalResponse(
+                out(
+                    "$ tree GENESIS/",
+                    "▸ archive contains $archived retired ${if (archived == 1) "generation" else "generations"} + 1 active.",
+                    "▸ lineage rendered on primary display.",
+                    "  (type `sonar` to return)",
+                ),
+                action = Action.SetView(View.Tree),
+            )
+        } else {
+            val gen = arg.toIntOrNull()
+            if (gen == null) {
+                TerminalResponse(out("usage: tree [gen]"))
+            } else {
+                val retired = state.lineage.find { it.gen == gen }
+                when {
+                    retired != null -> TerminalResponse(out(renderGeneration(retired, active = false)))
+                    gen == state.gen -> TerminalResponse(out(renderGeneration(activeLineageEntry(state), active = true)))
+                    else -> TerminalResponse(out("no such generation: G${gen.toString().padStart(2, '0')}"))
+                }
+            }
+        }
     }
 
     // newName/now는 ViewModel이 NAMES 풀·nowMillis로 스탬프(reducer 순수성 유지) — 여기선 시그널.

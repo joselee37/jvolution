@@ -69,8 +69,8 @@ sealed interface TerminalCommand {
 
     // ── 계보 (4차 마일스톤) ──
 
-    /** `tree` — 계보 화면으로 전환. */
-    data object Tree : TerminalCommand
+    /** `tree [gen]` — 인자 없으면 계보 화면 전환, 세대 번호면 해당 세대 상세 출력. */
+    data class Tree(val arg: String?) : TerminalCommand
 
     /** `reset` — 현재 개체 아카이브 + 새 알 시작(새 이름/타임스탬프는 ViewModel이 주입). */
     data object Reset : TerminalCommand

@@ -45,7 +45,7 @@ fun parse(input: String): TerminalCommand {
         "dnd" -> TerminalCommand.Dnd(args.firstOrNull())
         "challenge" -> TerminalCommand.Challenge(args.firstOrNull())
         "flee", "forfeit" -> TerminalCommand.Flee
-        "tree" -> TerminalCommand.Tree
+        "tree" -> TerminalCommand.Tree(args.firstOrNull())
         "reset" -> TerminalCommand.Reset
         "mute", "sound" -> TerminalCommand.Sound
         else -> TerminalCommand.Unknown(verb)

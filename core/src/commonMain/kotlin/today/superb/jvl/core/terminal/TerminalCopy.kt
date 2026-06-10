@@ -10,7 +10,16 @@ package today.superb.jvl.core.terminal
 internal val HELP_LINES = listOf(
     "AVAILABLE COMMANDS:",
     "  status        — vitals readout (boxed)",
+    "  scan / peers  — radar sweep + nearby unit list",
     "  ping          — sonar pulse on current view",
+    "  tree [gen]    — lineage archive / generation detail",
+    "  sonar / back  — return to sonar view",
+    "  bond <name>   — peer-bond + battle record",
+    "  challenge <n> — challenge nearby unit to battle",
+    "  accept        — accept incoming request",
+    "  decline       — dismiss incoming request",
+    "  dnd [on|off]  — block incoming challenges (auto on in battle)",
+    "  flee          — disengage from current battle",
     "  feed [item]   — feed creature",
     "  play          — happiness +",
     "  clean         — hygiene +",
@@ -20,10 +29,12 @@ internal val HELP_LINES = listOf(
     "  heal          — apply biopatch",
     "  evolve        — advance stage",
     "  talk          — converse",
+    "  mute          — toggle audio",
     "  name <str>    — rename unit",
     "  whoami        — operator info",
     "  history       — show log",
     "  clear         — clear screen",
+    "  reset         — archive + new egg",
 )
 
 internal val WHOAMI_LINES = listOf(
