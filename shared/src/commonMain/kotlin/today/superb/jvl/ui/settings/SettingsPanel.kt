@@ -30,7 +30,8 @@ import today.superb.jvl.ui.theme.LocalPalette
 import kotlin.math.round
 
 /**
- * 설정(Tweaks) 패널 — 데모 `TweaksPanel` 포팅. 헤더 우상단 톱니 버튼으로 열리는 풀스크린 오버레이.
+ * 설정 패널 — Tweaks(디스플레이/소나) + 게임 상태(species/sound/새 알)를 함께 다루는 풀스크린
+ * 오버레이. 데모 `TweaksPanel` 포팅, 헤더 우상단 톱니 버튼으로 열림.
  * Display(테마/CRT/스캔라인/노이즈)·Creature(종)·Sonar(펄스/감쇠)·Audio(SFX)·Care(새 알)를 실시간 반영.
  */
 @Composable

@@ -21,7 +21,7 @@ data class GameState(
     val cycles: Int,
     val gen: Int,
     val stage: Stage,
-    val species: Species,
+    val species: Species = Species.Ghost,
     val happiness: Float,
     val energy: Float,
     val hunger: Float,

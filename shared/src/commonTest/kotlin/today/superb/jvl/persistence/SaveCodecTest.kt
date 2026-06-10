@@ -118,7 +118,6 @@ class SaveCodecTest {
 
     @Test
     fun decode_migrates_v1_tweaks_species_into_game_state() {
-        val codec = SaveCodec()
         val game = GameState.initial("UNIT", 0L)
         // 현행 코덱으로 v2 블롭을 만든 뒤 schemaVersion을 1로 바꾸고 tweaks에 species를 주입해
         // v1 형상을 재구성한다 — 필드 나열 없이 v1 디스크 포맷과 동형.
@@ -136,12 +135,26 @@ class SaveCodecTest {
 
     @Test
     fun decode_v1_without_species_falls_back_to_game_species() {
-        val codec = SaveCodec()
-        val v2 = codec.encode(GameState.initial("UNIT", 0L), Tweaks())
+        val v2 = codec.encode(GameState.initial("UNIT", 0L).copy(species = Species.Blob), Tweaks())
         val v1 = v2.replaceFirst("\"schemaVersion\":2", "\"schemaVersion\":1")
         val blob = codec.decode(v1)
         assertNotNull(blob)
-        assertEquals(Species.Ghost, blob.game.species)
+        assertEquals(Species.Blob, blob.game.species, "species 키 없는 v1은 game.species 유지")
+    }
+
+    @Test
+    fun decode_v1_with_malformed_species_keeps_save_and_falls_back() {
+        val game = GameState.initial("UNIT", 0L)
+        val v2 = codec.encode(game.copy(gen = 3), Tweaks())
+        val v1 = v2
+            .replaceFirst("\"schemaVersion\":2", "\"schemaVersion\":1")
+            .replaceFirst("\"tweaks\":{", "\"tweaks\":{\"species\":\"Dragon\",")
+
+        val blob = codec.decode(v1)
+
+        assertNotNull(blob, "깨진 species 값이 저장본 전체를 날리지 않는다")
+        assertEquals(3, blob.game.gen, "진행도 보존")
+        assertEquals(Species.Ghost, blob.game.species, "이관 실패 시 game.species 폴백")
     }
 
     // #5 가드: 모든 transient를 세팅한 상태의 strippedForSave()가 durable-only 기준 상태와 같아야 함.
