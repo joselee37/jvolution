@@ -23,7 +23,10 @@ expect/actual 매칭까지 확인됨 — iOS 한정 리스크는 위 파일 + �
 ```sh
 ./gradlew :shared:compileKotlinIosArm64 :shared:compileKotlinIosSimulatorArm64
 ./gradlew :core:allTests        # iOS 시뮬 포함 전 타깃 테스트
-./gradlew :shared:embedAndSignAppleFrameworkForXcode   # Xcode 통합 빌드 표면
+# Xcode 통합 빌드 표면 — embedAndSign은 단독 gradle 실행 불가(syncComposeResourcesForIos가
+# Xcode 주입 변수 PLATFORM_NAME/BUILT_PRODUCTS_DIR 등을 요구). 아래처럼 xcodebuild로 구동:
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+  -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15' build
 ```
 
 ### 컴파일 에러가 나면 — 의심 지점 체크리스트 (개발 중 기록된 순서)
@@ -56,8 +59,11 @@ Xcode에서 `iosApp` 실행 후:
 
 ## 4. 완료 기준
 
-- [ ] `:shared:compileKotlinIosArm64` + `iosSimulatorArm64` 그린 (수정이 있었다면 커밋)
-- [ ] `:core:allTests` 그린
-- [ ] 스모크 1–4 통과 — 결과를 `docs/screenshots/qa-touch-sfx/README.md`의
-      "알려진 한계" 절에 반영(검증 완료로 갱신하거나 발견 이슈 기록)
-- [ ] 수정 커밋은 `fix(shared): adjust AVFAudio bindings for K/N` 형식으로
+검증 수행: 2026-06-11, macOS / Xcode 26.4 · iOS Sim SDK 26.4 (iPhone 15 시뮬).
+
+- [x] `:shared:compileKotlinIosArm64` + `iosSimulatorArm64` 그린 — **수정 0건**(8개 의심 바인딩 전부 무수정 컴파일, 핸드오프 §2 분석 정확)
+- [x] `:core:allTests` 그린 (`iosSimulatorArm64Test` 포함)
+- [x] Xcode 통합 빌드 — `xcodebuild … -scheme iosApp` → `** BUILD SUCCEEDED **` (embedAndSign 실구동)
+- [x] 스모크 §3 **앱-기동 게이트** — 시뮬 설치·실행, 크래시 없이 풀 렌더(failable AVAudioFormat init nil 아님 확인). 결과를 `docs/screenshots/qa-touch-sfx/README.md` "알려진 한계"에 반영
+- [ ] **잔여:** 스모크 §3 #1–3 가청 SFX(비프/인터럽션 복구/믹스) — 헤드리스 증빙 불가, 청취 수동 확인 필요
+- [x] `fix(shared): adjust AVFAudio bindings for K/N` — **불필요**(바인딩 수정 없음)
