@@ -28,5 +28,10 @@
 
 ## 알려진 한계 / 후속
 
-- `SfxPlayer.ios.kt`(AVAudioEngine)는 Linux에서 K/N 컴파일 불가 — **macOS에서 `:shared:compileKotlinIosArm64` + 시뮬레이터 스모크 필요** (인터럽션 후 SFX 재생 포함; 바인딩 라벨 의심 지점은 커밋 메시지/리뷰 기록 참조).
+- `SfxPlayer.ios.kt`(AVAudioEngine) iOS 검증 — **macOS(Xcode 26.4 / iOS Sim SDK 26.4)에서 완료(2026-06-11):**
+  - `:shared:compileKotlinIosArm64` + `iosSimulatorArm64` → `BUILD SUCCESSFUL`. 의심했던 K/N 바인딩 8곳(`pCMFormat` 라벨, 이중 포인터 인덱싱, `engine.running`/`player.playing`, `setActive` 확장 import, `setCategory`/`scheduleBuffer` 오버로드, failable `AVAudioFormat` init) **전부 수정 없이 컴파일** — 핸드오프 분석이 정확했고 `fix(shared)` 커밋 불필요.
+  - `:core:allTests`(`iosSimulatorArm64Test` 포함) → 그린.
+  - Xcode 통합 빌드: `xcodebuild -scheme iosApp -sdk iphonesimulator`(iPhone 15 시뮬) → `** BUILD SUCCEEDED **`. 이 경로가 Gradle `embedAndSignAppleFrameworkForXcode`를 실제로 구동(주의: 해당 태스크는 `syncComposeResourcesForIos`가 Xcode 주입 변수 `PLATFORM_NAME`/`BUILT_PRODUCTS_DIR` 등을 요구해 **단독 gradle 실행 불가** — 반드시 xcodebuild로 구동).
+  - 시뮬 런타임: 앱 설치·실행 → 크래시 없이 풀 렌더(터치 레이어 칩 스트립·SONAR 베젤·터미널). **필드 초기화자의 failable `AVAudioFormat` init이 nil을 반환하지 않아 Koin 주입 시점 크래시 없음**(스모크 §3 앱-기동 게이트 통과).
+  - **잔여(미완) — 가청 SFX 스모크 §3 #1–3:** 비프 발음/인터럽션 복구 재생/배경음악 믹스는 헤드리스 시뮬에서 증빙 불가(스크린샷에 소리 안 잡힘) — **기기/시뮬에서 청취 수동 확인 필요.**
 - HP 피격 플래시(420ms)는 정지 캡처로 시각 증빙 불가 — `BattleScreen.kt` LaunchedEffect 배선은 리뷰로 검증.
