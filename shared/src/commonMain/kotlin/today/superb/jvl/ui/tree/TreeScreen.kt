@@ -15,13 +15,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import today.superb.jvl.core.GameState
+import today.superb.jvl.core.genetics.Kinship
+import today.superb.jvl.core.genetics.genomeSignature
+import today.superb.jvl.core.genetics.pedigree
 import today.superb.jvl.core.terminal.activeLineageEntry
 import today.superb.jvl.nowMillis
+import today.superb.jvl.ui.genome.displayName
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.LocalDisplayFont
 import today.superb.jvl.ui.theme.LocalMonoFont
 import today.superb.jvl.ui.theme.LocalPalette
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 /** 트리 한 줄 — dim(은퇴)/alive(현 세대 status) 색 구분, [gen]은 노드 헤더 줄만(탭 → `tree <gen>`). */
 private data class TreeLine(val text: String, val dim: Boolean = false, val alive: Boolean = false, val gen: Int? = null)
@@ -92,6 +97,7 @@ private fun buildTreeLines(state: GameState, now: Long): List<TreeLine> {
     val spine = state.lineage.ancestors.filter { it.gen >= 1 }
     val nodes = spine.map { it to true } + (activeLineageEntry(state) to false)
     val totalCycles = spine.sumOf { it.cycles } + state.cycles
+    val pedigree = state.pedigree()
     val out = ArrayList<TreeLine>()
     out += TreeLine("$ tree GENESIS/")
     out += TreeLine("GENESIS/")
@@ -102,6 +108,13 @@ private fun buildTreeLines(state: GameState, now: Long): List<TreeLine> {
         val cont = if (last) "    " else "│   "
         val activeTag = if (retired) "" else "  ◀ ACTIVE"
         out += TreeLine("$branch" + "G${e.gen.toString().padStart(2, '0')}_${e.name}/$activeTag", dim = retired, gen = e.gen)
+        // 2부모 조인(이전 개체 × 피어 공동부모) — founder는 부모 미상이라 생략.
+        if (e.motherId != null && e.fatherId != null) {
+            out += field(cont, "✚ parents ", "${displayName(state, e.motherId)} × ${displayName(state, e.fatherId)}", retired)
+        }
+        out += field(cont, "genome    ", genomeSignature(e.genome), retired)
+        val f = Kinship.inbreeding(e.motherId, e.fatherId, pedigree)
+        out += field(cont, "kinship F ", "${(f * 100).roundToInt()}%", retired)
         out += field(cont, "stage     ", e.stage.name.lowercase(), retired)
         out += field(cont, "cycles    ", e.cycles.toString().padStart(4, '0'), retired)
         if (retired) {

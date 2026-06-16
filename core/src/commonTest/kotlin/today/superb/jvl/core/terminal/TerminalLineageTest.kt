@@ -44,6 +44,13 @@ class TerminalLineageTest {
     }
 
     @Test
+    fun genome_switches_to_genome_view() {
+        val r = reply("genome")
+        assertEquals(Action.SetView(View.Genome), r.action)
+        assertTrue(r.lines.any { it.text.contains("GENOME ASSAY") })
+    }
+
+    @Test
     fun tree_and_breed_locked_during_battle() {
         val s = st(battle = BattleState.start("hrrk"))
         assertNull(reply("tree", s).action)

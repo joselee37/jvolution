@@ -26,7 +26,7 @@ class ChipsForTest {
     @Test
     fun sonar_default_offers_care_and_nav() {
         assertEquals(
-            listOf("FEED", "PLAY", "CLEAN", "TRAIN", "HEAL", "SLEEP", "SCOLD", "RADAR", "TREE"),
+            listOf("FEED", "PLAY", "CLEAN", "TRAIN", "HEAL", "SLEEP", "SCOLD", "GENOME", "RADAR", "TREE"),
             labels(base),
         )
     }
@@ -81,6 +81,25 @@ class ChipsForTest {
         assertTrue(l.any { it == "CHALLENGE HRRK" })
         val cmd = chipsFor(onRadar, onRadar.peers.first()).first { it.label == "CHALLENGE HRRK" }.command
         assertEquals("challenge hrrk", cmd)
+    }
+
+    @Test
+    fun radar_selection_adds_breed_chip() {
+        val onRadar = base.copy(view = View.Radar, peers = listOf(peer("p1", "HRRK")))
+        val breed = chipsFor(onRadar, onRadar.peers.first()).first { it.label == "BREED HRRK" }
+        assertEquals("breed hrrk", breed.command)
+        assertEquals(ChipEmphasis.Highlight, breed.emphasis)
+    }
+
+    @Test
+    fun sonar_offers_genome_chip() {
+        val genome = chipsFor(base).first { it.label == "GENOME" }
+        assertEquals("genome", genome.command)
+    }
+
+    @Test
+    fun genome_view_adds_back() {
+        assertEquals("BACK", labels(base.copy(view = View.Genome)).first())
     }
 
     @Test

@@ -254,6 +254,15 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
         }
     }
 
+    TerminalCommand.Genome -> TerminalResponse(
+        out(
+            "◢◤ GENOME ASSAY ◢◤",
+            "▸ ${state.name}'s genome rendered on primary display.",
+            "  (type `sonar` to return)",
+        ),
+        action = Action.SetView(View.Genome),
+    )
+
     // ── 오디오 (6차) ──
 
     TerminalCommand.Sound -> TerminalResponse(

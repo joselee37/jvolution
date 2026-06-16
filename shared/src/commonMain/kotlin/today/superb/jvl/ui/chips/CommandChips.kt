@@ -50,9 +50,16 @@ fun chipsFor(state: GameState, selectedPeer: Peer? = null): List<CommandChip> {
                             emphasis = ChipEmphasis.Highlight,
                         ),
                     )
+                    add(
+                        CommandChip(
+                            label = "BREED ${selectedPeer.name}",
+                            command = "breed ${selectedPeer.name.lowercase()}",
+                            emphasis = ChipEmphasis.Highlight,
+                        ),
+                    )
                 }
             }
-            View.Tree -> add(chip("BACK", "back"))
+            View.Tree, View.Genome -> add(chip("BACK", "back"))
             View.Battle -> {} // battle != null 가드가 위에서 FLEE를 반환 — 정상 경로에선 도달 불가
             else -> {}
         }
@@ -65,6 +72,7 @@ fun chipsFor(state: GameState, selectedPeer: Peer? = null): List<CommandChip> {
         if (!state.asleep) add(chip("SLEEP"))
         add(chip("SCOLD"))
         if (state.view == View.Sonar) {
+            add(chip("GENOME", "genome"))
             add(chip("RADAR", "scan"))
             add(chip("TREE", "tree"))
         }

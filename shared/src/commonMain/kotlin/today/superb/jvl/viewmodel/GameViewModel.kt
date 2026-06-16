@@ -85,6 +85,13 @@ class GameViewModel(
     private val _tweaks = MutableStateFlow(initialTweaks ?: Tweaks())
     val tweaks: StateFlow<Tweaks> = _tweaks.asStateFlow()
 
+    /**
+     * 진행 중인 교배 미리보기 대상 peerId(없으면 null). presentation state(GameState 밖) —
+     * PAIR-BOND ASSAY 오버레이를 띄운다. [requestBreed]가 설정, [confirmBreed]/[cancelBreed]가 해제.
+     */
+    private val _breedTarget = MutableStateFlow<String?>(null)
+    val breedTarget: StateFlow<String?> = _breedTarget.asStateFlow()
+
     private var toastJob: Job? = null
     private var evolveJob: Job? = null
     private var disciplineJob: Job? = null
@@ -192,15 +199,30 @@ class GameViewModel(
     }
 
     /**
-     * 새 알 부화(= 무작위 가용 피어와 교배). wall-clock·새 이름·식별자 스탬프 후 dispatch.
-     * 설정 패널 "Hatch new egg" 버튼용 — 피어가 없으면 no-op(교배 상대 필요).
-     * 특정 상대를 고르려면 터미널 `breed <name>`.
+     * 새 알 부화(= 무작위 가용 피어와 교배 미리보기). 설정 패널 "Hatch new egg" 버튼용 —
+     * 피어가 없으면 no-op. 특정 상대는 터미널 `breed <name>` 또는 레이더 BREED 칩.
      */
     fun hatchNewEgg() {
         val peers = _state.value.peers
         if (peers.isEmpty()) return
-        val mate = peers[rng.nextInt(peers.size)]
-        dispatch(stampBreed(Action.Breed(peerId = mate.id, childName = "", childId = "", now = 0L)))
+        requestBreed(peers[rng.nextInt(peers.size)].id)
+    }
+
+    /** 교배 미리보기(PAIR-BOND ASSAY) 열기 — 유효한 피어일 때만. */
+    fun requestBreed(peerId: String) {
+        if (_state.value.peers.any { it.id == peerId }) _breedTarget.value = peerId
+    }
+
+    /** ASSAY 확정 — 대상 피어와 교배 dispatch 후 닫기. */
+    fun confirmBreed() {
+        val peerId = _breedTarget.value ?: return
+        _breedTarget.value = null
+        dispatch(stampBreed(Action.Breed(peerId = peerId, childName = "", childId = "", now = 0L)))
+    }
+
+    /** ASSAY 취소 — 닫기만(교배하지 않음). */
+    fun cancelBreed() {
+        _breedTarget.value = null
     }
 
     /** 순수 reducer가 읽지 않는 값(이름 풀·식별자·wall-clock)을 Breed 액션에 채워 넣는다. */
@@ -226,10 +248,8 @@ class GameViewModel(
         val inLine = TerminalLine(TerminalLineKind.In, "$prompt $trimmed")
         _terminal.value = (_terminal.value + inLine + response.lines).takeLast(TERMINAL_CAP)
         response.action?.let { action ->
-            // breed는 wall-clock(archivedAt/hatchedAt) + 자식 이름·식별자가 필요 — 여기서 스탬프(reducer는 순수).
-            // 책임자(responder)가 peerId만 채워 보내고, ViewModel이 나머지를 채운다.
-            val stamped = if (action is Action.Breed) stampBreed(action) else action
-            dispatch(stamped)
+            // breed는 즉시 교배하지 않고 PAIR-BOND ASSAY 오버레이를 연다(presentation). 나머지는 dispatch.
+            if (action is Action.Breed) requestBreed(action.peerId) else dispatch(action)
         }
     }
 

@@ -2,6 +2,7 @@ package today.superb.jvl.core.terminal
 
 import today.superb.jvl.core.GameState
 import today.superb.jvl.core.genetics.Ancestor
+import today.superb.jvl.core.genetics.genomeSignature
 
 /**
  * `tree <gen>` 세대 상세의 순수 텍스트 렌더. [renderStatus]/[renderBond]와 같은 규약 —
@@ -30,14 +31,18 @@ fun activeLineageEntry(state: GameState): Ancestor = Ancestor(
     archivedAt = 0L,
 )
 
-/** 한 세대의 상세 readout. [active]면 현역 표기. */
-fun renderGeneration(entry: Ancestor, active: Boolean): List<String> = listOf(
-    "▸ G${entry.gen.toString().padStart(2, '0')}_${entry.name} — ${entry.stage.name.lowercase()}",
-    "  cycles      ${entry.cycles.toString().padStart(4, '0')}",
-    "  happiness   ${entry.happiness}%",
-    "  energy      ${entry.energy}%",
-    "  bond        ${entry.bond}%",
-    "  discipline  ${entry.discipline}%",
-    "  training    ${entry.training}%",
-    "  status      ${if (active) "● active" else "✟ retired"}",
-)
+/** 한 세대의 상세 readout. [active]면 현역 표기. 게놈 시그니처 + (있으면) 부모 조인 포함. */
+fun renderGeneration(entry: Ancestor, active: Boolean): List<String> = buildList {
+    add("▸ G${entry.gen.toString().padStart(2, '0')}_${entry.name} — ${entry.stage.name.lowercase()}")
+    add("  genome      ${genomeSignature(entry.genome)}")
+    if (entry.motherId != null && entry.fatherId != null) {
+        add("  parents     ${entry.motherId} × ${entry.fatherId}")
+    }
+    add("  cycles      ${entry.cycles.toString().padStart(4, '0')}")
+    add("  happiness   ${entry.happiness}%")
+    add("  energy      ${entry.energy}%")
+    add("  bond        ${entry.bond}%")
+    add("  discipline  ${entry.discipline}%")
+    add("  training    ${entry.training}%")
+    add("  status      ${if (active) "● active" else "✟ retired"}")
+}

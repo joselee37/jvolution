@@ -37,6 +37,8 @@ import today.superb.jvl.ui.settings.LocalTweaks
 import today.superb.jvl.ui.settings.SettingsPanel
 import today.superb.jvl.ui.sonar.SonarScreen
 import today.superb.jvl.ui.tree.TreeScreen
+import today.superb.jvl.ui.genome.GenomeScreen
+import today.superb.jvl.ui.breed.BreedAssayOverlay
 import today.superb.jvl.ui.chips.CommandChipStrip
 import today.superb.jvl.ui.chips.chipsFor
 import today.superb.jvl.ui.terminal.TerminalScreen
@@ -52,6 +54,7 @@ fun App() {
     val state by vm.state.collectAsStateWithLifecycle()
     val terminal by vm.terminal.collectAsStateWithLifecycle()
     val tweaks by vm.tweaks.collectAsStateWithLifecycle()
+    val breedTarget by vm.breedTarget.collectAsStateWithLifecycle()
     var settingsOpen by remember { mutableStateOf(false) }
 
     // 레이더 블립 선택 — 화면 local 프레젠테이션 상태(GameState 밖). 레이더를 벗어나면 해제.
@@ -65,6 +68,7 @@ fun App() {
         View.Radar -> "LRRS-RADAR · ${state.peers.size} CONTACTS"
         View.Battle -> "ENGAGEMENT · CH.07 · R.${(state.battle?.turn ?: 1).toString().padStart(2, '0')}"
         View.Tree -> "LINEAGE-ARCHIVE · G${state.gen.toString().padStart(2, '0')}"
+        View.Genome -> "GENOME-ASSAY · G${state.gen.toString().padStart(2, '0')}"
         else -> "SONAR-OBS · ${state.stage.name.uppercase()}"
     }
 
@@ -123,6 +127,7 @@ fun App() {
                                             state = state,
                                             onSelectGen = { vm.submitCommand("tree $it") },
                                         )
+                                        View.Genome -> GenomeScreen(state = state)
                                         View.Battle -> BattleScreen(
                                             state = state,
                                             onSelectMove = { i ->
@@ -174,6 +179,16 @@ fun App() {
                         onToggleSound = { vm.dispatch(Action.ToggleSound) },
                         onHatch = { vm.hatchNewEgg(); settingsOpen = false },
                         onClose = { settingsOpen = false },
+                    )
+                }
+
+                // 교배 미리보기(PAIR-BOND ASSAY) — breedTarget이 가리키는 피어가 있으면 프레임 위에 모달.
+                state.peers.find { it.id == breedTarget }?.let { peer ->
+                    BreedAssayOverlay(
+                        state = state,
+                        peer = peer,
+                        onConfirm = { vm.confirmBreed() },
+                        onCancel = { vm.cancelBreed() },
                     )
                 }
             }

@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import today.superb.jvl.core.Species
+import today.superb.jvl.core.genetics.AppearanceTraits
 import today.superb.jvl.ui.settings.LocalTweaks
 import today.superb.jvl.ui.sonar.species.densityFor
 import today.superb.jvl.ui.theme.LocalPalette
@@ -69,9 +70,16 @@ fun DotCreatureCanvas(
     modifier: Modifier = Modifier,
     species: Species = Species.Ghost,
     energy: Float = 1f,
+    // 게놈 변조(외형 형질) — 종 실루엣은 유지하고 개체별 크기/밝기/톤/텍스처만 바꾼다.
+    appearance: AppearanceTraits = AppearanceTraits(
+        bodyLength = 5, branchAngle = 6, symmetry = 4, recursionDepth = 3, hue = 3, hueAlt = null, pattern = 2,
+    ),
+    vitality: Float = 0.5f,
 ) {
     val palette = LocalPalette.current
     val points = remember { buildGhostPoints() }
+    // hue 유전자 → phosphor 팔레트 안 미세 톤 바이어스(풀컬러 아님). draw에서 b에 가산.
+    val tintBias = (appearance.hue / 7f - 0.5f) * 0.12f
     val brightness = remember { FloatArray(points.size) }
     val litTime = remember { FloatArray(points.size) { -10f } }
 
@@ -81,6 +89,8 @@ fun DotCreatureCanvas(
     val curPingNonce by rememberUpdatedState(pingNonce)
     val curSpecies by rememberUpdatedState(species)
     val curEnergy by rememberUpdatedState(energy)
+    val curAppearance by rememberUpdatedState(appearance)
+    val curVitality by rememberUpdatedState(vitality)
     val curPulse by rememberUpdatedState(tweaks.pulsePeriod)
     val curDecay by rememberUpdatedState(tweaks.phosphorDecay)
 
@@ -119,20 +129,27 @@ fun DotCreatureCanvas(
             val sleepFactor = if (curAsleep) 0.4f else 1f
             val breathU = sin(t * 0.6f) * 0.015f
             val breathV = cos(t * 0.4f) * 0.012f
+            // 게놈 변조 인자(프레임당 1회). bodyLength→스케일, vitality→밝기, pattern→스티플 텍스처.
+            val scale = 0.85f + curAppearance.bodyLength / 9f * 0.30f
+            val brightnessMul = 0.8f + curVitality * 0.3f
+            val stippleThresh = 0.78f - curAppearance.pattern / 5f * 0.18f
 
             for (idx in points.indices) {
                 val p = points[idx]
                 val u = p.u + breathU
                 val v = p.v + breathV
-                var density = densityFor(curSpecies, u, v, t, curHappiness, curEnergy)
+                // 실루엣 샘플링만 스케일(위치/빔/draw는 원좌표). scale>1 → 더 크게 보임.
+                val su = u / scale
+                val sv = v / scale
+                var density = densityFor(curSpecies, su, sv, t, curHappiness, curEnergy)
 
                 // 가장자리 jitter — 실루엣 경계를 sonar-return처럼 거칠게.
                 val jitter = p.sparsity
                 if (density == 0f) {
                     val angle = jitter * TWO_PI
-                    val sampled = densityFor(curSpecies, u + cos(angle) * 0.05f, v + sin(angle) * 0.05f, t, curHappiness, curEnergy)
+                    val sampled = densityFor(curSpecies, su + cos(angle) * 0.05f, sv + sin(angle) * 0.05f, t, curHappiness, curEnergy)
                     if (sampled > 0.25f && jitter > 0.86f) density = 0.22f
-                } else if (density < 0.5f && jitter > 0.7f) {
+                } else if (density < 0.5f && jitter > stippleThresh) {
                     density *= 0.35f
                 }
                 val present = density > 0f && p.sparsity < density * 0.92f + 0.08f
@@ -148,7 +165,7 @@ fun DotCreatureCanvas(
                     }
                 }
                 val trail = exp(-(t - litTime[idx]) / curDecay)
-                val target = if (present) minOf(1f, maxOf(trail, beamBoost) * sleepFactor) else 0f
+                val target = if (present) minOf(1f, maxOf(trail, beamBoost) * sleepFactor * brightnessMul) else 0f
                 brightness[idx] += (target - brightness[idx]) * 0.4f
             }
 
@@ -176,8 +193,9 @@ fun DotCreatureCanvas(
             if (b < 0.02f) continue
 
             val center = Offset(cx + p.u * r, cy + p.v * r)
+            val tb = (b + tintBias).coerceIn(0f, 1f)   // hue 유전자 톤 바이어스(팔레트 안)
             drawCircle(
-                color = lerpColor(palette.phosDim, palette.phos, b).copy(alpha = b),
+                color = lerpColor(palette.phosDim, palette.phos, tb).copy(alpha = b),
                 radius = spacing * (0.30f + b * 0.34f),
                 center = center,
             )

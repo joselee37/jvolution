@@ -75,6 +75,8 @@ class TerminalParserTest {
         assertEquals(TerminalCommand.Flee, parse("forfeit"))
         assertEquals(TerminalCommand.Tree(null), parse("tree"))
         assertEquals(TerminalCommand.Breed("lumen"), parse("breed lumen"))
+        assertEquals(TerminalCommand.Genome, parse("genome"))
+        assertEquals(TerminalCommand.Genome, parse("dna"))
         assertEquals(TerminalCommand.Sound, parse("mute"))
         assertEquals(TerminalCommand.Sound, parse("sound"))
     }

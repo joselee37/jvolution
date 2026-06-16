@@ -47,6 +47,7 @@ fun parse(input: String): TerminalCommand {
         "flee", "forfeit" -> TerminalCommand.Flee
         "tree" -> TerminalCommand.Tree(args.firstOrNull())
         "breed" -> TerminalCommand.Breed(args.firstOrNull())
+        "genome", "dna" -> TerminalCommand.Genome
         "mute", "sound" -> TerminalCommand.Sound
         else -> TerminalCommand.Unknown(verb)
     }

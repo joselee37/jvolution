@@ -78,6 +78,9 @@ sealed interface TerminalCommand {
      */
     data class Breed(val name: String?) : TerminalCommand
 
+    /** `genome` / `dna` — 현재 개체의 게놈/표현형 readout 화면(Genome view)으로 전환. */
+    data object Genome : TerminalCommand
+
     /** `mute` / `sound` — 오디오 토글(6차 — 마지막 명령으로 전체 패리티 달성). */
     data object Sound : TerminalCommand
 

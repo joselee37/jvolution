@@ -12,4 +12,4 @@ import kotlinx.serialization.Serializable
  * (워치는 무시), 폰/워치 분기가 부담이 되면 :shared UI-state로 분리한다. PLAN.md 참조.
  */
 @Serializable
-enum class View { Sonar, Tree, Radar, Battle }
+enum class View { Sonar, Tree, Radar, Battle, Genome }

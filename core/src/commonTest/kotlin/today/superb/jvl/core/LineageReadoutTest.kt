@@ -40,6 +40,13 @@ class LineageReadoutTest {
     }
 
     @Test
+    fun tree_detail_shows_genome_signature_and_parents() {
+        val r = respond(parse("tree 2"), lineageState(), rng)
+        assertTrue(r.lines.any { it.text.contains("genome") }, "상세에 게놈 시그니처")
+        assertTrue(r.lines.any { it.text.contains("×") }, "부모 보유 세대는 부모 조인 표시")
+    }
+
+    @Test
     fun tree_with_unknown_gen_says_no_such_generation() {
         val r = respond(parse("tree 9"), lineageState(), rng)
         assertTrue(r.lines.any { it.text.contains("no such generation") })

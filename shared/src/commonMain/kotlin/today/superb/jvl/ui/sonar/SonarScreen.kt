@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import today.superb.jvl.core.GameState
+import today.superb.jvl.core.genetics.express
 import today.superb.jvl.core.moodLabel
 import today.superb.jvl.ui.text.MonoText
 import today.superb.jvl.ui.theme.LocalDisplayFont
@@ -35,6 +37,7 @@ fun SonarScreen(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalPalette.current
+    val pheno = remember(state.genome) { express(state.genome) }
     Column(modifier.fillMaxSize().padding(8.dp)) {
         Row(
             Modifier.fillMaxWidth(),
@@ -65,6 +68,8 @@ fun SonarScreen(
                 modifier = Modifier.fillMaxSize(),
                 species = state.species,   // 종은 게임 상태가 단일 소스(설정 패널이 SetSpecies로 변경)
                 energy = state.energy,
+                appearance = pheno.appearance,   // 게놈 변조 — 개체별 크기/톤/텍스처
+                vitality = pheno.stats.vitality,
             )
 
             // 수면 표시 — 우상단 zzz(데모 `screens.jsx:213`).
