@@ -144,4 +144,38 @@ class PeerBattleE2eTest {
         assertTrue(vm.state.value.evolveProgress > evolveBefore, "승리 보상: 진화 진행도 증가")
         assertEquals(1, vm.state.value.peers.first().battlesLost, "상대 패전 기록")
     }
+
+    @Test
+    fun full_battle_to_loss_applies_penalty() = runTest(dispatcher) {
+        // Dodge(커서2) vs 강제 Charge + crit → 내가 ~3.7 데미지/턴(상대 0) → 2턴 만에 내 KO(패배).
+        // BattleCommit당 FixedRng 2회: [npc 0.5→Charge, crit 0.0→발동].
+        val vm = GameViewModel(
+            FixedRng(listOf(0.5f, 0.0f, 0.5f, 0.0f, 0.5f, 0.5f)), autoTick = false,
+            initialState = challengedState(),
+        )
+        vm.submitCommand("accept"); runCurrent()
+        val happyBefore = vm.state.value.happiness
+        val discBefore = vm.state.value.discipline
+
+        // 턴 1 — Dodge(상대 Charge에 깨짐).
+        vm.dispatch(Action.BattleCursor(set = 2)); vm.dispatch(Action.BattleCommit); runCurrent()
+        advanceTimeBy(2700); runCurrent()
+        val b1 = vm.state.value.battle ?: error("battle ended early")
+        assertTrue(b1.hpMe in 0.1f..4.9f, "1턴 후 내 HP 감소(아직 KO 전): ${b1.hpMe}")
+        assertEquals(5f, b1.hpThem, "내가 Dodge라 상대는 데미지 0")
+
+        // 턴 2 — Dodge → 내 HP 0(패배).
+        vm.dispatch(Action.BattleCursor(set = 2)); vm.dispatch(Action.BattleCommit); runCurrent()
+        advanceTimeBy(2700); runCurrent()
+        assertEquals(BattlePhase.End, vm.state.value.battle?.phase, "내 KO → End")
+        assertEquals(BattleResult.Lose, vm.state.value.battle?.result, "패배")
+
+        // End + result → 1.8s 후 BattleEnd → 패널티 적용 + 소나 복귀.
+        advanceTimeBy(2000); runCurrent()
+        assertNull(vm.state.value.battle, "전투 종료")
+        assertEquals(View.Sonar, vm.state.value.view, "소나 복귀")
+        assertTrue(vm.state.value.happiness < happyBefore, "패배 페널티: happiness 감소")
+        assertTrue(vm.state.value.discipline > discBefore, "패배: discipline 증가")
+        assertEquals(1, vm.state.value.peers.first().battlesWon, "상대 승리 기록")
+    }
 }
