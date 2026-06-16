@@ -59,7 +59,7 @@ fun sfxCueFor(action: Action, before: GameState, after: GameState): Sfx? = when 
     Action.BattleFlee -> if (after.battle?.result == BattleResult.Flee) Sfx.Disengage else null
 
     Action.ToggleSound -> if (after.sound) Sfx.Confirm else null
-    is Action.Reset -> Sfx.Confirm
+    is Action.Breed -> Sfx.Confirm
 
     else -> null
 }

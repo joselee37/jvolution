@@ -34,7 +34,7 @@ internal val HELP_LINES = listOf(
     "  whoami        — operator info",
     "  history       — show log",
     "  clear         — clear screen",
-    "  reset         — archive + new egg",
+    "  breed <name>  — pair with peer, new egg",
 )
 
 internal val WHOAMI_LINES = listOf(

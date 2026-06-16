@@ -45,8 +45,10 @@ private fun fmtTime(ms: Long, now: Long): String {
 fun TreeScreen(state: GameState, onSelectGen: (Int) -> Unit = {}, modifier: Modifier = Modifier) {
     val palette = LocalPalette.current
     val now = nowMillis()
-    val nodeCount = state.lineage.size + 1
-    val totalCycles = state.lineage.sumOf { it.cycles } + state.cycles
+    // 본가 계보(gen>=1)만 노드로 — 피어 공동부모(founder, gen=0)는 트리 스파인에서 제외.
+    val spine = state.lineage.ancestors.filter { it.gen >= 1 }
+    val nodeCount = spine.size + 1
+    val totalCycles = spine.sumOf { it.cycles } + state.cycles
     val lines = buildTreeLines(state, now)
 
     Column(modifier.fillMaxSize().padding(8.dp)) {
@@ -87,8 +89,9 @@ fun TreeScreen(state: GameState, onSelectGen: (Int) -> Unit = {}, modifier: Modi
 }
 
 private fun buildTreeLines(state: GameState, now: Long): List<TreeLine> {
-    val nodes = state.lineage.map { it to true } + (activeLineageEntry(state) to false)
-    val totalCycles = state.lineage.sumOf { it.cycles } + state.cycles
+    val spine = state.lineage.ancestors.filter { it.gen >= 1 }
+    val nodes = spine.map { it to true } + (activeLineageEntry(state) to false)
+    val totalCycles = spine.sumOf { it.cycles } + state.cycles
     val out = ArrayList<TreeLine>()
     out += TreeLine("$ tree GENESIS/")
     out += TreeLine("GENESIS/")

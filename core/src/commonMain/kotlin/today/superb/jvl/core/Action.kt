@@ -91,12 +91,18 @@ sealed interface Action {
     /** 전투 종료 — 보상/페널티 적용 후 소나 복귀. */
     data object BattleEnd : Action
 
-    // ── 계보 (4차 마일스톤) ──
+    // ── 계보 / 번식 (4차 마일스톤) ──
 
     /**
-     * 세대 리셋 — 현재 개체를 계보에 아카이브하고 새 알로 다시 시작.
-     * [newName]은 ViewModel이 NAMES 풀에서 RNG로 고르고, [now]는 nowMillis()를 찍어 넣는다
-     * (reducer는 wall-clock을 읽지 않음). 피어/유대/전적은 보존된다.
+     * 유성 교배 — 현재 개체 × [peerId] 피어 → 자식(새 알, gen+1). 현재 개체는
+     * [today.superb.jvl.core.genetics.Ancestor]로 아카이브되고, 피어 공동부모도 (없으면)
+     * founder Ancestor로 기록된다(설계 §8). [childName]/[childId]/[now]는 ViewModel이 스탬프한다
+     * (reducer는 wall-clock·이름 풀을 읽지 않음 — 결정성 유지). 피어/유대/전적은 보존된다.
      */
-    data class Reset(val newName: String, val now: Long) : Action
+    data class Breed(
+        val peerId: String,
+        val childName: String,
+        val childId: String,
+        val now: Long,
+    ) : Action
 }

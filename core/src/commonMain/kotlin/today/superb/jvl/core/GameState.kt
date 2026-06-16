@@ -1,6 +1,10 @@
 package today.superb.jvl.core
 
 import kotlinx.serialization.Serializable
+import today.superb.jvl.core.genetics.Genome
+import today.superb.jvl.core.genetics.Lineage
+import today.superb.jvl.core.genetics.default
+import today.superb.jvl.core.genetics.startingStats
 
 /** 터미널/소나 로그 한 줄. newest-first로 누적, 최대 [LOG_CAP]줄. */
 @Serializable
@@ -59,51 +63,82 @@ data class GameState(
     val peerEventLatest: PeerEvent?,
     /** 진행 중인 전투(3차 마일스톤). 전투 중에만 non-null. */
     val battle: today.superb.jvl.core.battle.BattleState?,
-    /** 은퇴한 이전 세대 비석(4차 마일스톤). [Action.Reset]이 현재 개체를 여기에 아카이브. */
-    val lineage: List<LineageEntry>,
+    /**
+     * 혈통(계보 DAG). [Action.Breed]가 현재 개체를 [today.superb.jvl.core.genetics.Ancestor]로
+     * 아카이브하고, 피어 공동부모도 founder로 기록한다(설계 §6/§8).
+     */
+    val lineage: Lineage = Lineage(emptyList()),
+    /** 현재 개체의 이배체 게놈 — 표현형(외형/스탯/행동)의 단일 소스. 기본값은 결정론적 중간값 게놈. */
+    val genome: Genome = Genome.default(),
+    /** 현재 개체의 고유 식별자(혈통 DAG 노드 id). 시작 개체는 `"founder"`. */
+    val creatureId: String = "founder",
+    /** 모계 부모 식별자. founder(시작 개체)는 null. */
+    val motherId: String? = null,
+    /** 부계 부모 식별자. founder(시작 개체)는 null. */
+    val fatherId: String? = null,
 ) {
     companion object {
         const val LOG_CAP = 20
 
         /**
          * 새 게임 초기 상태. 데모 `initialState()`의 기본 스탯과 동일.
+         *
+         * 시작 energy/happiness/hunger는 [genome]의 표현형 스탯에서 시드한다(설계 §4 [startingStats]):
+         * 기본 게놈(전 좌위 중간값)은 레거시 초기값(0.7/0.6/0.45)을 정확히 재현한다. 나머지
+         * (dirty/bond/training/discipline)는 레거시 고정.
+         *
          * @param name  생성 시점에 caller(ViewModel)가 RNG로 고른 이름.
          * @param now   부화 시각(epoch millis) — caller가 `nowMillis()`로 주입.
          * @param peers 시작 피어 로스터. caller가 [PeerRoster.makePeers]로 만들어 주입(기본 빈 목록 —
          *              피어를 쓰지 않는 케어/터미널 단위테스트는 생략 가능).
+         * @param genome 현재 개체의 게놈. 기본은 결정론적 중간값 게놈.
+         * @param creatureId 현재 개체의 혈통 DAG 노드 id. 기본 `"founder"`.
          */
-        fun initial(name: String, now: Long, peers: List<Peer> = emptyList()): GameState = GameState(
-            name = name,
-            age = 0,
-            cycles = 0,
-            gen = 1,
-            stage = Stage.Egg,
-            species = Species.Ghost,
-            happiness = 0.6f,
-            energy = 0.7f,
-            hunger = 0.45f,
-            dirty = 0.3f,
-            bond = 0.4f,
-            training = 0.1f,
-            discipline = 0.2f,
-            asleep = false,
-            evolveProgress = 0f,
-            canEvolve = false,
-            evolving = false,
-            disciplineFlash = false,
-            pingNonce = 0,
-            log = emptyList(),
-            toast = null,
-            sound = false,
-            view = View.Sonar,
-            hatchedAt = now,
-            peers = peers,
-            pendingRequest = null,
-            dnd = false,
-            peerEventNonce = 0,
-            peerEventLatest = null,
-            battle = null,
-            lineage = emptyList(),
-        )
+        fun initial(
+            name: String,
+            now: Long,
+            peers: List<Peer> = emptyList(),
+            genome: Genome = Genome.default(),
+            creatureId: String = "founder",
+        ): GameState {
+            val seed = startingStats(genome)
+            return GameState(
+                name = name,
+                age = 0,
+                cycles = 0,
+                gen = 1,
+                stage = Stage.Egg,
+                species = Species.Ghost,
+                happiness = seed.happiness,
+                energy = seed.energy,
+                hunger = seed.hunger,
+                dirty = 0.3f,
+                bond = 0.4f,
+                training = 0.1f,
+                discipline = 0.2f,
+                asleep = false,
+                evolveProgress = 0f,
+                canEvolve = false,
+                evolving = false,
+                disciplineFlash = false,
+                pingNonce = 0,
+                log = emptyList(),
+                toast = null,
+                sound = false,
+                view = View.Sonar,
+                hatchedAt = now,
+                peers = peers,
+                pendingRequest = null,
+                dnd = false,
+                peerEventNonce = 0,
+                peerEventLatest = null,
+                battle = null,
+                lineage = Lineage(emptyList()),
+                genome = genome,
+                creatureId = creatureId,
+                motherId = null,
+                fatherId = null,
+            )
+        }
     }
 }

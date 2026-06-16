@@ -1,5 +1,7 @@
 package today.superb.jvl.core
 
+import today.superb.jvl.core.genetics.randomGenome
+
 /**
  * 고정 7유닛 NPC 로스터와 그 초기 상태 팩토리. 데모 `NPC_ROSTER` + `makePeers()` 1:1.
  *
@@ -52,6 +54,7 @@ object PeerRoster {
                 battlesWon = 0,
                 battlesLost = 0,
                 cooldown = 20f + rng.nextFloat() * 40f,
+                genome = randomGenome(rng),
             )
         }
     }

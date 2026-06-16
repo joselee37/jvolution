@@ -6,7 +6,9 @@ import today.superb.jvl.core.RequestType
 import today.superb.jvl.core.Rng
 import today.superb.jvl.core.View
 import today.superb.jvl.core.battle.acceptOdds
+import today.superb.jvl.core.genetics.predictedInbreeding
 import today.superb.jvl.core.talkLine
+import kotlin.math.roundToInt
 
 /** 전투 중 허용되는 명령(데모 BATTLE_ALLOWED). 그 외는 "locked"로 거부. */
 private fun allowedInBattle(command: TerminalCommand): Boolean = when (command) {
@@ -225,15 +227,32 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
         if (state.battle == null) TerminalResponse(out("no active engagement to flee from."))
         else TerminalResponse(out("▸ disengaging — pulse withdrawn."), action = Action.BattleFlee)
 
-    // ── 계보 (4차) ──
+    // ── 계보 / 번식 (4차) ──
 
     is TerminalCommand.Tree -> treeResponse(command.arg, state)
 
-    // newName/now는 ViewModel이 NAMES 풀·nowMillis로 스탬프(reducer 순수성 유지) — 여기선 시그널.
-    TerminalCommand.Reset -> TerminalResponse(
-        out("◢◤ NEW EGG INCUBATING ◢◤"),
-        action = Action.Reset(newName = "", now = 0L),
-    )
+    is TerminalCommand.Breed -> {
+        val target = command.name
+        if (target.isNullOrBlank()) {
+            TerminalResponse(out("usage: breed <name>"))
+        } else {
+            val peer = findPeer(state.peers, target)
+            if (peer == null) {
+                TerminalResponse(out("no peer named $target."))
+            } else {
+                // 교배 전 예측 근친계수(설계 §6) — 백분율로 표시. childName/childId/now는 ViewModel이 스탬프.
+                val fPct = (predictedInbreeding(state, peer.id) * 100).roundToInt()
+                TerminalResponse(
+                    out(
+                        "◢◤ PAIR-BOND // ${peer.name} ◢◤",
+                        "▸ predicted inbreeding F = $fPct%",
+                        "◢◤ NEW EGG INCUBATING ◢◤",
+                    ),
+                    action = Action.Breed(peerId = peer.id, childName = "", childId = "", now = 0L),
+                )
+            }
+        }
+    }
 
     // ── 오디오 (6차) ──
 
@@ -250,7 +269,7 @@ fun respond(command: TerminalCommand, state: GameState, rng: Rng): TerminalRespo
 /** `tree [gen]` 응답 — 인자 없으면 화면 전환, 세대 번호면 상세, 비숫자는 usage. */
 private fun treeResponse(arg: String?, state: GameState): TerminalResponse {
     if (arg == null) {
-        val archived = state.lineage.size
+        val archived = state.lineage.ancestors.count { it.gen >= 1 }
         return TerminalResponse(
             out(
                 "$ tree GENESIS/",
@@ -262,7 +281,7 @@ private fun treeResponse(arg: String?, state: GameState): TerminalResponse {
         )
     }
     val gen = arg.toIntOrNull() ?: return TerminalResponse(out("usage: tree [gen]"))
-    val retired = state.lineage.find { it.gen == gen }
+    val retired = state.lineage.ancestors.firstOrNull { it.gen == gen && it.gen >= 1 }
     return when {
         retired != null -> TerminalResponse(out(renderGeneration(retired, active = false)))
         gen == state.gen -> TerminalResponse(out(renderGeneration(activeLineageEntry(state), active = true)))

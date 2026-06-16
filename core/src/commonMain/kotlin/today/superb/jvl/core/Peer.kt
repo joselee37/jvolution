@@ -1,6 +1,8 @@
 package today.superb.jvl.core
 
 import kotlinx.serialization.Serializable
+import today.superb.jvl.core.genetics.Genome
+import today.superb.jvl.core.genetics.default
 
 /**
  * 피어 성격 — 근접 AI 이벤트에서 challenge/friendly 분기를 고를 확률을 결정한다.
@@ -44,4 +46,6 @@ data class Peer(
     val battlesWon: Int,
     val battlesLost: Int,
     val cooldown: Float,
+    /** 피어의 이배체 게놈 — 교배 시 한쪽 부모로 쓰인다. founder로 혈통에 기록될 수도 있다(설계 §7). */
+    val genome: Genome = Genome.default(),
 )

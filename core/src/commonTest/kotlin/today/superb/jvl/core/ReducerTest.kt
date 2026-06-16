@@ -237,10 +237,13 @@ class ReducerTest {
     }
 
     @Test
-    fun reset_preserves_selected_species() {
-        val squid = reduce(GameState.initial("UNIT", 0L), Action.SetSpecies(Species.Squid), rng())
-        val next = reduce(squid, Action.Reset(newName = "NEXT", now = 99L), rng())
-        assertEquals(Species.Squid, next.species, "새 알도 선택한 종을 유지")
+    fun breed_with_same_species_peer_keeps_species() {
+        // 양쪽 부모가 같은 종이면 자식 종은 동전던지기와 무관하게 그 종으로 결정된다.
+        val peers = PeerRoster.makePeers(SeededRng(1L))  // "hrrk"/"arc9" = Squid
+        val squid = GameState.initial("UNIT", 0L, peers).copy(species = Species.Squid)
+        val next = reduce(squid, Action.Breed(peerId = "hrrk", childName = "NEXT", childId = "c2", now = 99L), rng())
+        assertEquals(Species.Squid, next.species, "양쪽 부모가 Squid면 새 알도 Squid")
         assertEquals(2, next.gen)
+        assertEquals("NEXT", next.name)
     }
 }

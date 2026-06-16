@@ -11,10 +11,11 @@ class LineageReadoutTest {
 
     private val rng = SeededRng(42L)
 
-    /** gen 2 활성 + gen 1 은퇴 상태. */
+    /** gen 2 활성(BETA) + gen 1 은퇴(ALPHA) 상태 — 피어 lumen과 교배해 다음 세대로. */
     private fun lineageState(): GameState {
-        val g1 = reduce(GameState.initial("ALPHA", 1_000L), Action.Feed, rng)
-        return reduce(g1, Action.Reset(newName = "BETA", now = 2_000L), rng)
+        val peers = PeerRoster.makePeers(rng)
+        val g1 = reduce(GameState.initial("ALPHA", 1_000L, peers), Action.Feed, rng)
+        return reduce(g1, Action.Breed(peerId = "lumen", childName = "BETA", childId = "g2", now = 2_000L), rng)
     }
 
     @Test
@@ -56,7 +57,7 @@ class LineageReadoutTest {
     fun help_lists_all_implemented_commands() {
         val help = respond(parse("help"), GameState.initial("UNIT", 0L), rng)
             .lines.joinToString("\n") { it.text }
-        for (cmd in listOf("scan", "tree", "bond", "challenge", "accept", "decline", "dnd", "flee", "mute", "reset")) {
+        for (cmd in listOf("scan", "tree", "bond", "challenge", "accept", "decline", "dnd", "flee", "mute", "breed")) {
             assertTrue(help.contains(cmd), "help에 $cmd 누락")
         }
     }

@@ -191,9 +191,23 @@ class GameViewModel(
         _tweaks.value = tweaks
     }
 
-    /** 새 알 부화(= reset). wall-clock·새 이름 스탬프 후 dispatch. 설정 패널 "Hatch new egg" 버튼용. */
+    /**
+     * 새 알 부화(= 무작위 가용 피어와 교배). wall-clock·새 이름·식별자 스탬프 후 dispatch.
+     * 설정 패널 "Hatch new egg" 버튼용 — 피어가 없으면 no-op(교배 상대 필요).
+     * 특정 상대를 고르려면 터미널 `breed <name>`.
+     */
     fun hatchNewEgg() {
-        dispatch(Action.Reset(newName = NAMES[rng.nextInt(NAMES.size)], now = nowMillis()))
+        val peers = _state.value.peers
+        if (peers.isEmpty()) return
+        val mate = peers[rng.nextInt(peers.size)]
+        dispatch(stampBreed(Action.Breed(peerId = mate.id, childName = "", childId = "", now = 0L)))
+    }
+
+    /** 순수 reducer가 읽지 않는 값(이름 풀·식별자·wall-clock)을 Breed 액션에 채워 넣는다. */
+    private fun stampBreed(action: Action.Breed): Action.Breed {
+        val name = NAMES[rng.nextInt(NAMES.size)]
+        val now = nowMillis()
+        return action.copy(childName = name, childId = "g${_state.value.gen + 1}_${name}_$now", now = now)
     }
 
     /** 터미널 입력 한 줄 처리. parse → respond → lines append + action dispatch. */
@@ -212,8 +226,9 @@ class GameViewModel(
         val inLine = TerminalLine(TerminalLineKind.In, "$prompt $trimmed")
         _terminal.value = (_terminal.value + inLine + response.lines).takeLast(TERMINAL_CAP)
         response.action?.let { action ->
-            // reset은 wall-clock(archivedAt/hatchedAt) + 새 이름이 필요 — 여기서 스탬프(reducer는 순수).
-            val stamped = if (action is Action.Reset) action.copy(newName = NAMES[rng.nextInt(NAMES.size)], now = nowMillis()) else action
+            // breed는 wall-clock(archivedAt/hatchedAt) + 자식 이름·식별자가 필요 — 여기서 스탬프(reducer는 순수).
+            // 책임자(responder)가 peerId만 채워 보내고, ViewModel이 나머지를 채운다.
+            val stamped = if (action is Action.Breed) stampBreed(action) else action
             dispatch(stamped)
         }
     }

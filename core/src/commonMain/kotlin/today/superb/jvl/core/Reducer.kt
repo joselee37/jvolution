@@ -8,6 +8,9 @@ import today.superb.jvl.core.battle.BattleState
 import today.superb.jvl.core.battle.battleNarration
 import today.superb.jvl.core.battle.pickNpcMove
 import today.superb.jvl.core.battle.resolveBattleTurn
+import today.superb.jvl.core.genetics.Ancestor
+import today.superb.jvl.core.genetics.Lineage
+import today.superb.jvl.core.genetics.breed
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -440,33 +443,71 @@ fun reduce(state: GameState, action: Action, rng: Rng): GameState {
             }
         }
 
-        // ── 계보 (4차) — 데모 reset 1:1 ──
+        // ── 계보 / 번식 (4차) — 설계 §8 ──
 
-        is Action.Reset -> {
-            val epitaph = LineageEntry(
-                gen = state.gen,
-                name = state.name,
-                stage = state.stage,
-                cycles = state.cycles,
-                happiness = (state.happiness * 100).roundToInt(),
-                energy = (state.energy * 100).roundToInt(),
-                bond = (state.bond * 100).roundToInt(),
-                discipline = (state.discipline * 100).roundToInt(),
-                training = (state.training * 100).roundToInt(),
-                hatchedAt = state.hatchedAt,
-                archivedAt = action.now,
-            )
-            // 새 알 — 스탯/단계 초기화. 피어/유대/전적·대기요청·뷰는 생명체와 독립이므로 보존.
-            // 종은 설정 선택이므로 유지.
-            GameState.initial(action.newName, action.now, state.peers).copy(
-                gen = state.gen + 1,
-                species = state.species,
-                lineage = state.lineage + epitaph,
-                view = state.view,
-                pendingRequest = state.pendingRequest,
-                peerEventNonce = state.peerEventNonce,
-                peerEventLatest = state.peerEventLatest,
-            )
+        is Action.Breed -> {
+            val peer = state.peers.find { it.id == action.peerId }
+            if (peer == null) {
+                state   // 미상 피어 → no-op.
+            } else {
+                // 현재 개체를 Ancestor로 아카이브. 부모는 현 개체 자신의 부모(state.mother/fatherId).
+                val archived = Ancestor(
+                    id = state.creatureId,
+                    gen = state.gen,
+                    name = state.name,
+                    species = state.species,
+                    stage = state.stage,
+                    genome = state.genome,
+                    motherId = state.motherId,
+                    fatherId = state.fatherId,
+                    cycles = state.cycles,
+                    happiness = (state.happiness * 100).roundToInt(),
+                    energy = (state.energy * 100).roundToInt(),
+                    bond = (state.bond * 100).roundToInt(),
+                    discipline = (state.discipline * 100).roundToInt(),
+                    training = (state.training * 100).roundToInt(),
+                    hatchedAt = state.hatchedAt,
+                    archivedAt = action.now,
+                )
+                // 피어 공동부모가 혈통에 없으면 founder(gen=0, 부모 없음)로 기록(중복 방지).
+                val peerKnown = state.lineage.ancestors.any { it.id == peer.id }
+                val peerFounder = if (peerKnown) null else Ancestor(
+                    id = peer.id,
+                    gen = 0,
+                    name = peer.name,
+                    species = peer.species,
+                    stage = peer.stage,
+                    genome = peer.genome,
+                    motherId = null,
+                    fatherId = null,
+                    cycles = 0,
+                    happiness = 0,
+                    energy = 0,
+                    bond = (peer.bond * 100).roundToInt(),
+                    discipline = 0,
+                    training = 0,
+                    hatchedAt = action.now,
+                    archivedAt = action.now,
+                )
+                val updatedLineage = Lineage(
+                    state.lineage.ancestors + archived + listOfNotNull(peerFounder),
+                )
+                // 자식 게놈 = 이배체 재조합 + 돌연변이. 종은 50%로 한쪽 부모(enum이라 게놈 밖).
+                val child = breed(state.genome, peer.genome, rng)
+                val childSpecies = if (rng.nextFloat() < 0.5f) state.species else peer.species
+                // 새 알 — 스탯/단계 초기화(게놈 시드). 피어/유대/전적·대기요청·뷰는 생명체와 독립이라 보존.
+                GameState.initial(action.childName, action.now, state.peers, child, action.childId).copy(
+                    gen = state.gen + 1,
+                    species = childSpecies,
+                    lineage = updatedLineage,
+                    motherId = state.creatureId,
+                    fatherId = peer.id,
+                    view = state.view,
+                    pendingRequest = state.pendingRequest,
+                    peerEventNonce = state.peerEventNonce,
+                    peerEventLatest = state.peerEventLatest,
+                )
+            }
         }
     }
 }

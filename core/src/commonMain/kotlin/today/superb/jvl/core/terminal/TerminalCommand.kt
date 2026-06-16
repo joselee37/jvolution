@@ -4,7 +4,7 @@ package today.superb.jvl.core.terminal
  * 파싱된 터미널 명령. 데모 `runCommand`의 verb 분기 1:1(1차 마일스톤 범위).
  *
  * 레이더·전투·계보 관련 명령(scan/peers/radar/tree/sonar/bond/challenge/accept/
- * decline/dnd/flee/mute/reset)은 후속 마일스톤이라 [ModulePending]으로 묶는다 —
+ * decline/dnd/flee/mute/breed)은 후속 마일스톤이라 [ModulePending]으로 묶는다 —
  * 1차에서는 SetView를 dispatch하지 않고 우아하게 응답만 한다.
  */
 sealed interface TerminalCommand {
@@ -72,8 +72,11 @@ sealed interface TerminalCommand {
     /** `tree [gen]` — 인자 없으면 계보 화면 전환, 세대 번호면 해당 세대 상세 출력. */
     data class Tree(val arg: String?) : TerminalCommand
 
-    /** `reset` — 현재 개체 아카이브 + 새 알 시작(새 이름/타임스탬프는 ViewModel이 주입). */
-    data object Reset : TerminalCommand
+    /**
+     * `breed <name>` — 현재 개체 × 이름으로 지정한 피어 교배 + 새 알 시작(자식 이름/식별자/
+     * 타임스탬프는 ViewModel이 주입). 인자 없음/미상 피어 → usage/error.
+     */
+    data class Breed(val name: String?) : TerminalCommand
 
     /** `mute` / `sound` — 오디오 토글(6차 — 마지막 명령으로 전체 패리티 달성). */
     data object Sound : TerminalCommand
