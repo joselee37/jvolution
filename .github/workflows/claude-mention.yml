@@ -1,0 +1,36 @@
+name: claude-mention
+
+# 이슈/PR 코멘트에 @claude 를 포함하면 Claude(Opus)가 스레드 맥락을 읽고 응답한다.
+# 통합 자동화 워크플로 (레포 무관). prompt 미지정 → 멘션 모드(코멘트 맥락에 반응).
+# 시크릿: CLAUDE_CODE_OAUTH_TOKEN · Actions 정책: allowed_actions=all 필요.
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  respond:
+    # @claude 멘션이 있고, 봇 자신의 코멘트가 아닐 때만 (자기 응답 → 무한 루프 방지)
+    if: >-
+      contains(github.event.comment.body, '@claude') &&
+      github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout (shallow)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Claude respond (@claude 멘션)
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: |
+            --model opus
+            --allowedTools "Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*),Read,Grep,Glob"
