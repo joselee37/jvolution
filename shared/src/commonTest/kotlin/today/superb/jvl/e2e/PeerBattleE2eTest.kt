@@ -113,4 +113,35 @@ class PeerBattleE2eTest {
         assertEquals(View.Battle, vm.state.value.view)
         assertNotNull(vm.state.value.battle)
     }
+
+    @Test
+    fun full_battle_to_ko_grants_win_reward() = runTest(dispatcher) {
+        // Charge(커서1) vs 강제 Dodge + crit → 상대 3.0 데미지/턴 → 2턴 KO.
+        // BattleCommit당 FixedRng 2회: [npc 프로필 0.82→Dodge, crit 0.0→발동]. accept는 rng-free.
+        val vm = GameViewModel(
+            FixedRng(listOf(0.82f, 0.0f, 0.82f, 0.0f, 0.5f, 0.5f)), autoTick = false,
+            initialState = challengedState(),
+        )
+        vm.submitCommand("accept"); runCurrent()
+        val evolveBefore = vm.state.value.evolveProgress
+
+        // 턴 1 — Charge.
+        vm.dispatch(Action.BattleCursor(set = 1)); vm.dispatch(Action.BattleCommit); runCurrent()
+        advanceTimeBy(2700); runCurrent()
+        val hpAfterT1 = vm.state.value.battle?.hpThem ?: error("battle ended early")
+        assertTrue(hpAfterT1 in 0.1f..4.9f, "1턴 후 상대 HP 감소(crit 데미지, 아직 KO 전): $hpAfterT1")
+
+        // 턴 2 — Charge → KO.
+        vm.dispatch(Action.BattleCursor(set = 1)); vm.dispatch(Action.BattleCommit); runCurrent()
+        advanceTimeBy(2700); runCurrent()
+        assertEquals(BattlePhase.End, vm.state.value.battle?.phase, "KO → End 페이즈")
+        assertEquals(BattleResult.Win, vm.state.value.battle?.result, "승리")
+
+        // End + result → 1.8s 후 BattleEnd → 보상 적용 + 소나 복귀.
+        advanceTimeBy(2000); runCurrent()
+        assertNull(vm.state.value.battle, "전투 종료")
+        assertEquals(View.Sonar, vm.state.value.view, "소나 복귀")
+        assertTrue(vm.state.value.evolveProgress > evolveBefore, "승리 보상: 진화 진행도 증가")
+        assertEquals(1, vm.state.value.peers.first().battlesLost, "상대 패전 기록")
+    }
 }
