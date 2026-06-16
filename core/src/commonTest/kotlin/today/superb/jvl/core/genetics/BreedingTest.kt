@@ -1,5 +1,6 @@
 package today.superb.jvl.core.genetics
 
+import today.superb.jvl.core.FixedRng
 import today.superb.jvl.core.SeededRng
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -101,5 +102,47 @@ class BreedingTest {
         val a = breed(mother, father, SeededRng(99L))
         val b = breed(mother, father, SeededRng(99L))
         assertEquals(a, b)
+    }
+
+    private val hue = Loci.byId(4)   // 0..7
+
+    @Test
+    fun mutate_clamps_at_locus_max() {
+        // nextFloat #1 < MUTATION_RATE(0.08) → 발동, #2 < 0.5 → +1. 7+1 → clamp 7.
+        assertEquals(7, mutateAllele(7, hue, FixedRng(listOf(0.0f, 0.0f))))
+    }
+
+    @Test
+    fun mutate_clamps_at_locus_min() {
+        // #1 발동, #2 >= 0.5 → -1. 0-1 → clamp 0.
+        assertEquals(0, mutateAllele(0, hue, FixedRng(listOf(0.0f, 0.9f))))
+    }
+
+    @Test
+    fun mutate_noop_when_below_rate() {
+        // #1 >= MUTATION_RATE → 그대로(둘째 float 소비 안 함 — FixedRng 미고갈로 검증).
+        assertEquals(5, mutateAllele(5, hue, FixedRng(listOf(0.5f))))
+    }
+
+    @Test
+    fun child_allele_origin_is_exact_without_mutation() {
+        // 좌위마다 4 float: [모계 pick=0.0→maternal, 부계 pick=0.9→paternal, 모계 rate=0.9, 부계 rate=0.9(둘 다 돌연변이 없음)].
+        val mother = randomGenome(SeededRng(11L))
+        val father = randomGenome(SeededRng(22L))
+        val scripted = List(Loci.SIZE) { listOf(0.0f, 0.9f, 0.9f, 0.9f) }.flatten()
+        val child = breed(mother, father, FixedRng(scripted))
+        Loci.ALL.forEach { locus ->
+            assertEquals(mother.alleles[locus.id].maternal, child.alleles[locus.id].maternal, "locus ${locus.key}: 모계 maternal에서")
+            assertEquals(father.alleles[locus.id].paternal, child.alleles[locus.id].paternal, "locus ${locus.key}: 부계 paternal에서")
+        }
+    }
+
+    @Test
+    fun short_genome_is_padded_safely() {
+        val short = Genome(alleles = Genome.default().alleles.take(4))
+        // express: 누락 좌위는 중간값으로 패딩 → default 게놈과 동일 표현형(앞 4개도 중간값이라).
+        assertEquals(express(Genome.default()), express(short))
+        // breed: 짧은 게놈도 전체 길이로 패딩(인덱스 크래시 없음).
+        assertEquals(Loci.SIZE, breed(short, Genome.default(), SeededRng(1L)).alleles.size)
     }
 }

@@ -1,5 +1,6 @@
 package today.superb.jvl.core
 
+import today.superb.jvl.core.genetics.breed
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -62,6 +63,18 @@ class LineageReducerTest {
     }
 
     @Test
+    fun breed_child_genome_is_recombination_and_parents_archived() {
+        val s = lived()
+        val peer = s.peers.first { it.id == "lumen" }
+        // reducer는 breed()를 먼저 호출하므로 같은 시드의 독립 breed가 자식 게놈을 재현한다.
+        val expectedChild = breed(s.genome, peer.genome, SeededRng(1L))
+        val next = reduce(s, Action.Breed("lumen", "KAIJU", "g2", 1000L), SeededRng(1L))
+        assertEquals(expectedChild, next.genome, "자식 게놈 = breed(부모 게놈들)")
+        assertEquals(s.genome, next.lineage.ancestors.first { it.id == "g1" }.genome, "아카이브 조상은 자기 게놈 보존")
+        assertEquals(peer.genome, next.lineage.ancestors.first { it.id == "lumen" }.genome, "피어 founder는 피어 게놈 보존")
+    }
+
+    @Test
     fun breed_with_unknown_peer_is_noop() {
         val s = lived()
         val next = reduce(s, Action.Breed("nobody", "X", "gx", now = 1L), SeededRng(1L))
@@ -70,13 +83,17 @@ class LineageReducerTest {
 
     @Test
     fun breed_preserves_peers_and_records() {
-        val s = lived().copy(pendingRequest = PeerRequest("lumen", RequestType.Challenge), peerEventNonce = 3)
+        val s = lived().copy(
+            pendingRequest = PeerRequest("lumen", RequestType.Challenge), peerEventNonce = 3,
+            view = View.Tree,
+        )
         val next = reduce(s, Action.Breed("lumen", "BLEEP", "g2", now = 1000L), SeededRng(1L))
-        // peers + 관계는 생명체와 독립 → 보존.
+        // peers + 관계 + 뷰는 생명체와 독립 → 보존.
         assertEquals(s.peers, next.peers)
         assertEquals(0.6f, next.peers.first().bond, EPS)
         assertEquals(PeerRequest("lumen", RequestType.Challenge), next.pendingRequest)
         assertEquals(3, next.peerEventNonce)
+        assertEquals(View.Tree, next.view, "뷰 보존(initial의 Sonar 기본값과 구분)")
     }
 
     @Test

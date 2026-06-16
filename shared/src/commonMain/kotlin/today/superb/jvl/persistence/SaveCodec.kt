@@ -110,9 +110,11 @@ class SaveCodec {
      * - v1 종 이관: tweaks.species → game.species(v2+는 이미 game.species).
      * - 없는 genome/creatureId/motherId/fatherId(게임)·genome(피어)은 디코드 시 기본값으로 채워진다.
      */
-    private fun migrateLegacy(root: JsonObject, version: Int): SaveBlob? {
-        val game = root["game"]?.jsonObject ?: return null
-        val tweaks = root["tweaks"]?.jsonObject ?: return null
+    private fun migrateLegacy(root: JsonObject, version: Int): SaveBlob? = runCatching {
+        // surgery 전체를 runCatching으로 감싼다 — 잘못된 형상("game":123, lineage 항목의 gen이 객체 등)에서
+        // .jsonObject/.jsonPrimitive가 던지는 예외가 decode()의 null 폴백 계약을 깨고 앱 시작을 크래시시키지 않게.
+        val game = root["game"]?.jsonObject ?: return@runCatching null
+        val tweaks = root["tweaks"]?.jsonObject ?: return@runCatching null
 
         val defaultGenome = json.encodeToJsonElement(Genome.serializer(), Genome.default())
         val newLineage: JsonElement = when (val l = game["lineage"]) {
@@ -164,9 +166,8 @@ class SaveCodec {
                 "tweaks" to tweaks,
             ),
         )
-        return runCatching { json.decodeFromJsonElement(SaveBlob.serializer(), newRoot) }
-            .getOrNull()?.let { it.copy(game = it.game.strippedForSave()) }
-    }
+        json.decodeFromJsonElement(SaveBlob.serializer(), newRoot)
+    }.getOrNull()?.let { it.copy(game = it.game.strippedForSave()) }
 }
 
 /**

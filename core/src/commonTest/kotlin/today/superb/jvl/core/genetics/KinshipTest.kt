@@ -105,16 +105,27 @@ class KinshipTest {
         assertEquals(0.0, Kinship.coefficientOfKinship("A", "ghostParent", nodes), delta)
     }
 
+    /** 전동기 C,D의 자식 Z, 손으로 검증한 2세대 근친 혈통. */
+    private fun inbredZNodes() = nodesOf(
+        founder("A"),
+        founder("B"),
+        child("C", gen = 1, mother = "A", father = "B"),
+        child("D", gen = 1, mother = "A", father = "B"),
+        child("Z", gen = 2, mother = "C", father = "D"),
+    )
+
     @Test
     fun child_of_full_sibs_is_inbred() {
-        // 근친교배 사슬 종료/누적 검증: G2 자식 부모 = 전동기 C,D → F = f(C,D) = 0.25.
-        val nodes = nodesOf(
-            founder("A"),
-            founder("B"),
-            child("C", gen = 1, mother = "A", father = "B"),
-            child("D", gen = 1, mother = "A", father = "B"),
-            child("Z", gen = 2, mother = "C", father = "D"),
-        )
-        assertEquals(0.25, Kinship.inbreeding("C", "D", nodes), delta)
+        // Z의 부모 포인터(C,D)로 F를 구한다 → F_Z = f(C,D) = 0.25(2세대 하강 경로 실제 검증).
+        val nodes = inbredZNodes()
+        val z = nodes.getValue("Z")
+        assertEquals(0.25, Kinship.inbreeding(z.motherId, z.fatherId, nodes), delta)
+    }
+
+    @Test
+    fun inbred_self_kinship_includes_inbreeding_term() {
+        // f(Z,Z) = 0.5*(1 + F_Z) = 0.5*(1 + 0.25) = 0.625 — 자기 친족계수의 (1+F) 항을 검증.
+        val nodes = inbredZNodes()
+        assertEquals(0.625, Kinship.coefficientOfKinship("Z", "Z", nodes), delta)
     }
 }

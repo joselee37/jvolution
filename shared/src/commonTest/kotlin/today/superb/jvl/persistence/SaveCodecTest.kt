@@ -150,7 +150,7 @@ class SaveCodecTest {
     @Test
     fun decode_v1_without_species_falls_back_to_game_species() {
         val v2 = codec.encode(GameState.initial("UNIT", 0L).copy(species = Species.Blob), Tweaks())
-        val v1 = v2.replaceFirst("\"schemaVersion\":2", "\"schemaVersion\":1")
+        val v1 = v2.replaceFirst("\"schemaVersion\":${SaveBlob.SCHEMA_VERSION}", "\"schemaVersion\":1")
         val blob = codec.decode(v1)
         assertNotNull(blob)
         assertEquals(Species.Blob, blob.game.species, "species 키 없는 v1은 game.species 유지")
@@ -200,6 +200,33 @@ class SaveCodecTest {
         assertEquals(Loci.SIZE, a.genome.alleles.size, "조상에 기본 게놈 부여")
         assertEquals(Loci.SIZE, blob.game.genome.alleles.size, "현재 개체에 기본 게놈 부여")
         assertEquals("founder", blob.game.creatureId)
+    }
+
+    @Test
+    fun decode_of_malformed_legacy_returns_null_not_crash() {
+        // surgery는 디스크 로드 진입점 — 잘못된 형상은 던지지 말고 null(→ 새 게임)로 폴백해야 한다.
+        // game이 객체가 아님 → .jsonObject가 던짐.
+        assertNull(codec.decode("{\"schemaVersion\":2,\"game\":123,\"tweaks\":{}}"))
+        // lineage 항목의 gen이 객체 → .jsonPrimitive가 던짐.
+        assertNull(codec.decode("{\"schemaVersion\":2,\"game\":{\"lineage\":[{\"gen\":{},\"name\":\"X\"}]},\"tweaks\":{}}"))
+    }
+
+    @Test
+    fun decode_v2_with_unknown_stage_keeps_save() {
+        // 알 수 없는 stage enum 문자열이 와도 Ancestor.stage 기본값으로 폴백 — 한 항목 때문에 저장본 전체를 날리지 않는다.
+        val v2 = """
+            {"schemaVersion":2,"game":{
+            "name":"MORSE","age":0,"cycles":12,"gen":2,"stage":"Larva","species":"Squid",
+            "happiness":0.9,"energy":0.8,"hunger":0.2,"dirty":0.1,"bond":0.5,"training":0.3,"discipline":0.4,
+            "asleep":false,"evolveProgress":0.6,"canEvolve":false,"evolving":false,"disciplineFlash":false,
+            "pingNonce":0,"log":[],"toast":null,"sound":true,"view":"Sonar","hatchedAt":500,
+            "peers":[],"pendingRequest":null,"dnd":false,"peerEventNonce":0,"peerEventLatest":null,"battle":null,
+            "lineage":[{"gen":1,"name":"OLD","stage":"Bogus","cycles":99,"happiness":80,"energy":70,"bond":60,"discipline":50,"training":40,"hatchedAt":100,"archivedAt":200}]
+            },"tweaks":{}}
+        """.trimIndent()
+        val blob = assertNotNull(codec.decode(v2), "알 수 없는 stage가 저장본 전체를 날리지 않는다")
+        assertEquals(1, blob.game.lineage.ancestors.size)
+        assertEquals(Stage.Adult, blob.game.lineage.ancestors[0].stage, "알 수 없는 stage → 기본값 Adult로 폴백")
     }
 
     // #5 가드: 모든 transient를 세팅한 상태의 strippedForSave()가 durable-only 기준 상태와 같아야 함.

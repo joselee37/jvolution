@@ -46,8 +46,8 @@ fun breed(maternal: Genome, paternal: Genome, rng: Rng): Genome {
     )
 }
 
-/** 저확률 ±1 섭동(50/50), 좌위 범위 `[min, max]`로 clamp. */
-private fun mutateAllele(value: Int, locus: Locus, rng: Rng): Int {
+/** 저확률 ±1 섭동(50/50), 좌위 범위 `[min, max]`로 clamp. (테스트 직접 검증 위해 internal) */
+internal fun mutateAllele(value: Int, locus: Locus, rng: Rng): Int {
     if (rng.nextFloat() >= MUTATION_RATE) return value
     val delta = if (rng.nextFloat() < 0.5f) 1 else -1
     return (value + delta).coerceIn(locus.min, locus.max)

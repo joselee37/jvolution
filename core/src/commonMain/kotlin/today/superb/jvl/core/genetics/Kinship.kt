@@ -58,6 +58,10 @@ object Kinship {
         } else {
             val na = node(a, nodes)
             val nb = node(b, nodes)
+            // 불변식(load-bearing): 모든 부모는 자식보다 gen이 작아야 한다. gen을 "다른 쪽의 조상이
+            // 아닌 노드"의 프록시로 써서 하강하기 때문 — 부모 gen >= 자식 gen인 혈통(gen 역전)이 들어오면
+            // 잘못된 계수가 나온다. 현재 이 불변식은 reducer(자식 gen=부모+1)와 마이그레이션(조상=founder)이
+            // 보장한다. 새 코드가 Ancestor를 기록할 때도 이 불변식을 유지할 것.
             // 더 최근(높은 gen) 노드를 하강. 동일 gen이면 부모 보유한 쪽; 둘 다 보유면 a.
             val aHasParents = na.motherId != null && na.fatherId != null
             val bHasParents = nb.motherId != null && nb.fatherId != null

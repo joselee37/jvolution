@@ -296,7 +296,7 @@ data class Breed(val peerId: String, val childName: String, val childId: String,
 - 신규 모델(`Genome`/`AllelePair`/`Ancestor`/`Lineage`) 전부 `@Serializable`. `Phenotype`/`*Traits`는 **비직렬화**(파생 — 항상 `express`로 재계산).
 - `SaveBlob.SCHEMA_VERSION` **2 → 3**. `GameState`의 신규 필드는 기본값이 있어 forward-compat이지만, 의미 있는 마이그레이션을 위해 분기 추가.
 - **v2 → v3 마이그레이션**(`SaveCodec.decode`): v2 블롭은 게놈/식별자 없고 `lineage`가 구 `List<LineageEntry>` 형태(JSON). 처리:
-  - 현재 개체/피어에 `Genome.default()` 할당, `creatureId = "g${gen}_${name}"`, 부모 null(founder).
+  - 현재 개체/피어에 `Genome.default()` 할당. 마이그레이션된 현재 개체는 부모 미상이므로 **founder로 취급**(`creatureId = "founder"`, 부모 null — `GameState` 기본값). 조상은 `id = "g${gen}_${name}"`.
   - 구 `lineage` 각 엔트리 → `Ancestor`(default 게놈, 부모 null, `species=Species.Ghost` 폴백, 스탯/시각 1:1 매핑, id=`"g${gen}_${name}"`).
   - kotlinx 역직렬화는 타입 불일치(구 `List<LineageEntry>` → 신 `Lineage`)로 실패하므로, **v2는 raw JSON에서 필드를 수동 파싱**해 재구성(기존 v1→v2 분기가 `parseToJsonElement`로 하는 방식과 동일 패턴).
 - `Genome.version`: 역직렬화된 게놈 길이 < `Loci.ALL.size`면 기본 대립유전자로 패딩(`express`/`breed` 진입 시 정규화). 이번엔 v1뿐이라 패딩 경로만 마련.

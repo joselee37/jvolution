@@ -15,8 +15,10 @@ data class Ancestor(
     val id: String,
     val gen: Int,
     val name: String,
-    val species: Species,
-    val stage: Stage,
+    // species/stage는 직렬화 기본값을 둔다 — 레거시 마이그레이션에서 알 수 없는 enum 값이
+    // 와도 coerceInputValues가 항목별로 폴백하게 해, 한 조상 때문에 저장본 전체가 날아가지 않게.
+    val species: Species = Species.Ghost,
+    val stage: Stage = Stage.Adult,
     val genome: Genome,
     val motherId: String?,
     val fatherId: String?,
