@@ -88,14 +88,18 @@
 1. **도메인 e2e (headless, 결정론, `:shared:jvmTest`)** — `GameViewModel(autoTick=false)` 위에서 명령 시퀀스를 `submitCommand`/`dispatch`로 흘리고 GameState+터미널을 단언. `SeededRng`/`FixedRng` + `StandardTestDispatcher`. **이번 작업의 1차 대상.**
 2. **UI e2e (instrumented, emulator-5570)** — adb로 실제 Compose 구동 + 스크린샷. 시각/통합 동선. iOS는 macOS 별도.
 
-**도메인 e2e 풀플로우 (기능당 1, `shared/.../viewmodel/e2e/`)**:
+**도메인 e2e 풀플로우 (`shared/src/commonTest/.../e2e/`) — 구현 완료, 25개**:
 
 | 테스트 | 흐름 | 핵심 단언 |
 |--------|------|-----------|
-| `CareLifecycleE2eTest` | drift→HUNGRY→feed→NOMINAL; train/tick→canEvolve→evolve→stage++ | mood 전이, 스탯 clamp, stage 전이, toast/로그 |
-| `PeerBattleE2eTest` | challenge(강제 수락)→battle start→commit→phase 진행→flee→end→sonar | view 전이, battle 라이프사이클, log, 보상 |
-| `BreedingLineageE2eTest` | breed→ASSAY→confirm→gen++; 조상 피어와 재교배→근친 F>0 | breedTarget 전이, 혈통 DAG, predictedInbreeding 누적 |
-| `PersistenceE2eTest` | 진행→디바운스 저장→새 VM 복원→이어가기 | durable 보존, transient 리셋 |
+| `CareLifecycleE2eTest` (3) | drift→HUNGRY→feed→회복; 스탯 clamp; 진화(Egg→Larva) | mood 전이, clamp, stage 전이, toast 만료 |
+| `PeerBattleE2eTest` (5) | accept→battle; commit→턴; flee→sonar; challenge 수락; **2턴 KO→보상** | view 전이, 라이프사이클, log, 승리 보상 |
+| `BreedingLineageE2eTest` (4) | breed→ASSAY→confirm→gen++; 2부모 혈통; 조상 재교배 F=0.25; cancel | breedTarget, 혈통 DAG, 근친 누적 |
+| `PeerRadarE2eTest` (3) | PeerTick→challenge→decline; DND 자동거절; friendly→bond | 근접 AI, DND, bond |
+| `TerminalNavE2eTest` (6) | echo/clear/unknown/status·whoami·help readout; sonar↔radar↔tree↔genome; sleep/wake 멱등 | 단일 입력 게이트, 뷰 전환 |
+| `SettingsE2eTest` (4) | SetSpecies(세대 유지); mute/sound 토글; Tweaks 영속화; hatch→ASSAY→confirm | 설정·종·사운드·부화 |
+
+영속화는 기존 `GameViewModelSaveTest`(디바운스·transient·복원·cosmetic 드리프트)가 커버.
 
 **caveat (테스트 작성 시 준수)**:
 - 행동 형질은 전투/AI에 미반영 → 해당 e2e 금지.
