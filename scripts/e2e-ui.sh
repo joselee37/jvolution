@@ -78,6 +78,16 @@ run_cmd "status"; shot 05-status
 run_cmd "breed lumen"; shot 06-breed-assay   # PAIR-BOND ASSAY overlay (kept last)
 stop
 
+echo "▸ battle (challenge an aggressive foe; accept is ~85%, so retried)…"
+launch
+for _ in $(seq 1 6); do
+  ADB shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+  ADB shell cat /sdcard/ui.xml 2>/dev/null | grep -qi "ENGAGEMENT" && { echo "  ✓ in battle"; break; }
+  run_cmd "challenge hrrk"
+done
+shot 08-battle
+stop
+
 echo "▸ settings panel (isolated)…"
 launch
 tap_text "CFG"; sleep 2          # ⚙ CFG (top-right) located via uiautomator bounds
