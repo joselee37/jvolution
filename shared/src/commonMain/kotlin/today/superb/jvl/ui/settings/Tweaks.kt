@@ -23,8 +23,8 @@ data class Tweaks(
     val noise: Boolean = true,
     /** 실 CRT 셰이더(AGSL/SkSL) on/off. 기본 off → 기존 Compose-Canvas 근사. 테스터 비교용 토글. */
     val crtShader: Boolean = false,
-    val pulsePeriod: Float = 5f,      // [2, 12] s
-    val phosphorDecay: Float = 1f,    // [0.3, 4] s
+    val pulsePeriod: Float = 3.5f,    // [2, 12] s
+    val phosphorDecay: Float = 3.5f,  // [0.3, 4] s
     /** 메인 베젤 하우징(데모 Housing 라디오 1:1). */
     val bezel: BezelStyle = BezelStyle.Military,
 )
