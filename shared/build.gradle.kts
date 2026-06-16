@@ -62,6 +62,14 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
         }
+        // Compose UI 시맨틱스 테스트는 jvm-전용(데스크톱 Skiko 런타임) — iOS/Android에 UI 테스트
+        // 런타임을 강제하지 않으려고 jvmTest에만 둔다. 화면이 순수 (state)->@Composable이라 격리 렌더가 쉽다.
+        // uiTestJUnit4가 createComposeRule + 데스크톱 런타임을 전이로 제공(별도 실험 API opt-in 불필요).
+        jvmTest.dependencies {
+            implementation(compose.desktop.uiTestJUnit4)
+            // OS별 Skiko 네이티브 런타임(linux-x64 등) — 헤드리스 렌더에 필요(uiTestJUnit4가 안 끌어옴).
+            implementation(compose.desktop.currentOs)
+        }
     }
 }
 
